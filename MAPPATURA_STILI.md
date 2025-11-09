@@ -576,3 +576,4 @@ La mappatura è **dettagliata e fattibile**. Tutti i valori possono essere conve
 4. Migrare component classes
 5. Testare e validare
 
+
