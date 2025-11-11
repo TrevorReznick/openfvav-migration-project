@@ -1,0 +1,193 @@
+{
+  "version": "2.0",
+  "workspaceRoot": "/path/to/workspace",
+  "paths": {
+    "v3": "/path/to/openfav-v3",
+    "v4": "/path/to/openfav-v4",
+    "v6": "/path/to/openfav-v6"
+  },
+  "_comment_paths": {
+    "v3": "Codebase di riferimento/fallback (opzionale) - usato per mapping alternativi",
+    "v4": "Sorgente principale - da qui vengono estratti token e componenti",
+    "v6": "Destinazione migrazione - qui vengono salvati i risultati"
+  },
+  "options": {
+    "createBackup": true,
+    "dryRun": false,
+    "verbose": true,
+    "outputFormat": "js",
+    "autoApplyTokens": false
+  },
+  "tokenMappings": {
+    "colors": {
+      "source": {
+        "v4": [
+          { "path": "{v4}/src/styles/globals.css", "type": "css" },
+          { "path": "{v4}/src/styles/tokens.css", "type": "css" }
+        ],
+        "v3": [
+          { "path": "{v3}/src/styles/variables.scss", "type": "scss" }
+        ]
+      },
+      "primary": { "v4Name": "--primary", "v3Name": "$primary-color" },
+      "primary-foreground": { "v4Name": "--primary-foreground" },
+      "secondary": { "v4Name": "--secondary", "v3Name": "$secondary-color" },
+      "secondary-foreground": { "v4Name": "--secondary-foreground" },
+      "background": { "v4Name": "--background" },
+      "foreground": { "v4Name": "--foreground" },
+      "muted": { "v4Name": "--muted" },
+      "muted-foreground": { "v4Name": "--muted-foreground" },
+      "accent": { "v4Name": "--accent" },
+      "accent-foreground": { "v4Name": "--accent-foreground" },
+      "destructive": { "v4Name": "--destructive" },
+      "destructive-foreground": { "v4Name": "--destructive-foreground" },
+      "border": { "v4Name": "--border" },
+      "input": { "v4Name": "--input" },
+      "ring": { "v4Name": "--ring" },
+      "radius": { "v4Name": "--radius" }
+    },
+    "typography": {
+      "source": {
+        "v4": [
+          { "path": "{v4}/src/styles/typography.css", "type": "css" }
+        ]
+      },
+      "fontFamily": {
+        "sans": { "v4Name": "--font-sans", "v3Name": "$font-family-base" },
+        "mono": { "v4Name": "--font-mono", "v3Name": "$font-family-monospace" }
+      },
+      "fontSize": {
+        "xs": { "v4Name": "--text-xs" },
+        "sm": { "v4Name": "--text-sm" },
+        "base": { "v4Name": "--text-base" },
+        "lg": { "v4Name": "--text-lg" },
+        "xl": { "v4Name": "--text-xl" },
+        "2xl": { "v4Name": "--text-2xl" },
+        "3xl": { "v4Name": "--text-3xl" }
+      },
+      "lineHeight": {
+        "base": { "v4Name": "--leading-base" },
+        "tight": { "v4Name": "--leading-tight" },
+        "relaxed": { "v4Name": "--leading-relaxed" }
+      }
+    },
+    "spacing": {
+      "source": {
+        "v4": [
+          { "path": "{v4}/src/styles/spacing.css", "type": "css" }
+        ]
+      },
+      "space": {
+        "0": { "v4Name": "space-0" },
+        "1": { "v4Name": "space-1" },
+        "2": { "v4Name": "space-2" },
+        "3": { "v4Name": "space-3" },
+        "4": { "v4Name": "space-4" },
+        "5": { "v4Name": "space-5" },
+        "6": { "v4Name": "space-6" },
+        "8": { "v4Name": "space-8" },
+        "10": { "v4Name": "space-10" },
+        "12": { "v4Name": "space-12" },
+        "16": { "v4Name": "space-16" },
+        "20": { "v4Name": "space-20" },
+        "24": { "v4Name": "space-24" },
+        "32": { "v4Name": "space-32" }
+      }
+    },
+    "padding": {
+      "source": {
+        "v4": [
+          { "path": "{v4}/src/styles/spacing.css", "type": "css" }
+        ]
+      },
+      "values": {
+        "0": { "v4Name": "p-0" },
+        "1": { "v4Name": "p-1" },
+        "2": { "v4Name": "p-2" },
+        "3": { "v4Name": "p-3" },
+        "4": { "v4Name": "p-4" },
+        "5": { "v4Name": "p-5" },
+        "6": { "v4Name": "p-6" },
+        "8": { "v4Name": "p-8" }
+      }
+    },
+    "margin": {
+      "source": {
+        "v4": [
+          { "path": "{v4}/src/styles/spacing.css", "type": "css" }
+        ]
+      },
+      "values": {
+        "0": { "v4Name": "m-0" },
+        "1": { "v4Name": "m-1" },
+        "2": { "v4Name": "m-2" },
+        "3": { "v4Name": "m-3" },
+        "4": { "v4Name": "m-4" },
+        "auto": { "v4Name": "m-auto" }
+      }
+    },
+    "borderRadius": {
+      "source": {
+        "v4": [
+          { "path": "{v4}/src/styles/borders.css", "type": "css" }
+        ]
+      },
+      "values": {
+        "none": { "v4Name": "rounded-none" },
+        "sm": { "v4Name": "rounded-sm" },
+        "DEFAULT": { "v4Name": "rounded" },
+        "md": { "v4Name": "rounded-md" },
+        "lg": { "v4Name": "rounded-lg" },
+        "xl": { "v4Name": "rounded-xl" },
+        "2xl": { "v4Name": "rounded-2xl" },
+        "full": { "v4Name": "rounded-full" }
+      }
+    },
+    "borderWidth": {
+      "source": {
+        "v4": [
+          { "path": "{v4}/src/styles/borders.css", "type": "css" }
+        ]
+      },
+      "values": {
+        "DEFAULT": { "v4Name": "border" },
+        "0": { "v4Name": "border-0" },
+        "2": { "v4Name": "border-2" },
+        "4": { "v4Name": "border-4" },
+        "8": { "v4Name": "border-8" }
+      }
+    }
+  },
+  "componentMappings": {
+    "button": {
+      "v4Path": "{v4}/src/components/Button.tsx",
+      "v6Path": "{v6}/src/react/components/ui/Button.tsx",
+      "transformations": [
+        {
+          "type": "import",
+          "from": "@/components/Button",
+          "to": "@/components/ui/button"
+        },
+        {
+          "type": "class",
+          "from": "btn-primary",
+          "to": "bg-primary"
+        },
+        {
+          "type": "prop",
+          "from": "variant",
+          "to": "variant",
+          "valueMappings": {
+            "primary": "default",
+            "secondary": "secondary"
+          }
+        }
+      ]
+    },
+    "themeToggle": {
+      "v4Path": "{v4}/src/components/ThemeToggle.tsx",
+      "v6Path": "{v6}/src/react/components/ui/ThemeToggle.tsx"
+    }
+  }
+}
+
