@@ -1,338 +1,288 @@
-# 📋 Product Requirements Document (PRD)
-OpenFav Migration Unified Tool
+# Product Requirements Document (PRD)
+# OpenFav Migration Unified
 
-Version: 2.0  
-Last Updated: 2025-01-11  
-Status: In Development (35% Complete)  
-Document Type: Consolidated PRD from validated partial documents
-
----
-
-## 📑 Table of Contents
-- [1. Executive Summary](#1-executive-summary)
-  - [1.1 Project Vision](#11-project-vision)
-  - [1.2 Key Objectives](#12-key-objectives)
-  - [1.3 Target Users](#13-target-users)
-  - [1.4 Success Criteria](#14-success-criteria)
-- [2. Project Overview](#2-project-overview)
-  - [2.1 Problem Statement](#21-problem-statement)
-  - [2.2 Solution Overview](#22-solution-overview)
-  - [2.3 Core Value Proposition](#23-core-value-proposition)
-- [3. Product Evolution History](#3-product-evolution-history)
-  - [3.1 Phase 1: Initial Prototypes (v0, v1, v2, v3)](#31-phase-1-initial-prototypes-v0-v1-v2-v3)
-  - [3.2 Phase 2: Analysis & Planning](#32-phase-2-analysis--planning)
-- [4. Current State Analysis](#4-current-state-analysis)
-- [5. Technical Requirements](#5-technical-requirements)
-- [6. Feature Specifications](#6-feature-specifications)
-- [7. Implementation Roadmap](#7-implementation-roadmap)
-- [8. Success Metrics](#8-success-metrics)
-- [9. Appendices](#9-appendices)
+**Data:** 2025-01-09  
+**Versione:** 2.0  
+**Stato:** In Sviluppo (35% Completato)
 
 ---
 
-## 1. Executive Summary
+## Indice
 
-### 1.1 Project Vision
-OpenFav Migration Unified è un tool CLI completo per migrare i design system OpenFav da V3/V4 a V6, combinando le migliori funzionalità dei tool precedenti per offrire estrazione automatica dei token, conversione dei colori e migrazione completa del design system (componenti, configurazioni, stili), con validazioni, backup e report.
-
-### 1.2 Key Objectives
-| Objective | Description | Priority |
-| --- | --- | --- |
-| Automated Token Extraction | Estrae automaticamente i design token da CSS/SCSS | 🔴 Critico |
-| Color Format Conversion | Converte colori HEX/RGBA in HSL (compatibile V6) | 🔴 Critico |
-| Component Migration | Migra componenti React/Astro con trasformazioni classi/props | 🟡 Alto |
-| Web Interface | Dashboard web interattiva per migrazione guidata | 🟢 Medio |
-| Production Ready | Affidabilità con validazione, backup e rollback | 🔴 Critico |
-
-### 1.3 Target Users
-- Frontend Developers che migrano progetti OpenFav da V3/V4 a V6
-- Design System Teams che gestiscono migrazioni di design token
-- Technical Leads che supervisionano migrazioni UI su larga scala
-
-### 1.4 Success Criteria
-- ✅ 100% accuratezza conversione colori (HEX/RGBA → HSL)
-- ✅ Zero perdita di dati durante la migrazione
-- ✅ Tempo di migrazione < 5 minuti per progetti tipici
-- ✅ Automazione ≥ 90% (ridotta necessità di intervento manuale)
-- ✅ Rollback completo e verificato
+1. [Panoramica](#panoramica)
+2. [Obiettivi](#obiettivi)
+3. [Analisi delle Versioni Esistenti](#analisi-delle-versioni-esistenti)
+4. [Funzionalità Principali](#funzionalità-principali)
+5. [Architettura e Design](#architettura-e-design)
+6. [Configurazione](#configurazione)
+7. [Interfaccia Web](#interfaccia-web)
+8. [Piano di Implementazione](#piano-di-implementazione)
+9. [Testing e Qualità](#testing-e-qualità)
+10. [Sicurezza e Backup](#sicurezza-e-backup)
+11. [Deployment](#deployment)
+12. [Roadmap](#roadmap)
+13. [Appendici](#appendici)
 
 ---
 
-## 2. Project Overview
+## Panoramica
 
-### 2.1 Problem Statement
-OpenFav deve migrare da V3/V4 (HEX/RGBA) a V6 (HSL con design token). La migrazione manuale è:
-- ⏱️ Lenta (giorni/settimane)
-- ❌ Fallibile (errori nella conversione dei colori)
-- 🔄 Incoerente (approcci differenti per progetto)
-- 📉 Rischiosa (potenziale perdita dati, no rollback)
+OpenFav Migration Unified è uno strumento di migrazione che combina le migliori caratteristiche delle versioni precedenti (v0, v1/v2, v3) per offrire una soluzione completa per migrare OpenFav da V3/V4 a V6. Il tool supporta la migrazione di design tokens, componenti e stili, con un approccio ibrido che unisce l'estrazione automatica da file sorgente e la configurazione manuale.
 
-Esempio migrazione:
+## Obiettivi
 
-```css
-/* V4 - Manual hex colors */
-:root {
-  --primary-color: #7C3AED;
-  --card-bg: rgba(30, 41, 59, 0.3);
-}
+- **Unificazione**: Creare un unico tool che sostituisca le versioni precedenti, mantenendo la compatibilità
+- **Automazione**: Minimizzare l'intervento manuale nell'estrazione e conversione di token e componenti
+- **Flessibilità**: Supportare multiple fonti (CSS, SCSS, JSON) e formati di output (JSON, JS)
+- **Sicurezza**: Implementare backup automatici e dry-run per prevenire perdite di dati
+- **Usabilità**: Fornire un'interfaccia CLI e web per soddisfare diverse preferenze d'uso
 
-/* V6 - HSL design tokens system */
-:root {
-  --color-primary: 270 81% 60%;
-  --card: 222 33% 17% / 0.3;
+## Analisi delle Versioni Esistenti
+
+### migration-v0
+- **Tipo**: CLI Tool completo
+- **Punti di forza**: API Express, Tailwind analyzer, script apply-tokens, struttura modulare
+- **Punti di debolezza**: Scrive nella directory corrente invece del target, mancanza di supporto per lineHeight
+
+### migration-v1/v2
+- **Tipo**: Progetto Astro + React (v1: base, v2: completo con shadcn/ui)
+- **Punti di forza**: Estrazione automatica token da CSS/SCSS, mapping automatico, supporto multi-source
+- **Punti di debolezza**: Non ha script apply-tokens integrato
+
+### migration-v3
+- **Tipo**: CLI Tool semplificato
+- **Punti di forza**: Scrittura diretta in path target, supporto completo token dimensionali, dry-run
+- **Punti di debolezza**: Manca API e alcuni analyzer
+
+### Confronto Efficacia Migrazione Token
+- **migration-v1/v2** è la più efficace per l'estrazione automatica da file sorgente
+- **migration-v3** è adatto per configurazioni manuali già pronte
+- **migration-v0** è sconsigliato per la scrittura in directory corrente
+
+## Funzionalità Principali
+
+### Estrazione Automatica Token (da v1/v2)
+- Estrazione da CSS variables (`--primary: value`)
+- Estrazione da SCSS variables (`$color-primary: value`)
+- Supporto per multiple file sorgente
+- Fallback da V3 a V4
+
+### Tool Completo (da v0)
+- API Express per analisi interattiva
+- Tailwind analyzer per analisi classi utility
+- Script apply-tokens per applicare token ai file
+
+### Struttura Pulita (da v3)
+- Scrittura diretta in path target
+- Supporto completo token dimensionali (spacing, padding, margin, borderRadius, borderWidth)
+- Dry-run mode
+- Generazione index.js per import
+
+### Nuove Funzionalità
+- Config wizard interattivo
+- Backup/restore automatico
+- Report dettagliato migrazione
+- Validazione avanzata
+- Progress tracking
+
+## Architettura e Design
+
+### Struttura del Progetto
+```
+migration-unified/
+├── src/
+│   ├── config/          # Caricamento e validazione configurazione
+│   ├── tokens/          # Migrazione token (estrattori, generatori, mapper)
+│   ├── components/      # Migrazione componenti (trasformatori, validatori)
+│   ├── utils/           # Utility (file, path, logger, backup, reporter)
+│   └── validators/      # Validazione path e configurazione
+├── scripts/             # Script apply-tokens e update-imports
+├── analyzers/           # Analizzatori Tailwind e componenti
+├── api/                 # API Express e dashboard web
+└── tests/               # Test unitari e di integrazione
+```
+
+### Flusso di Migrazione
+1. **Setup**: Configurazione tramite wizard o file
+2. **Validazione**: Controllo path e file sorgente
+3. **Estrazione**: Automatica da file CSS/SCSS o da configurazione
+4. **Conversione**: Trasformazione colori (HEX/RGBA → HSL) e altri token
+5. **Generazione**: File di token (JSON/JS) e aggiornamento Tailwind config
+6. **Migrazione Componenti**: Trasformazione import, classi, props
+7. **Applicazione Token**: Script apply-tokens per aggiornare i file
+8. **Report**: Generazione report di migrazione
+
+### Approccio Ibrido
+- Prima estrazione automatica da file sorgente
+- Fallback a configurazione manuale se i file non sono trovati
+- Output in JSON o JS (configurabile)
+
+## Configurazione
+
+### File di Configurazione
+Il file `migration.config.json` supporta:
+- Path assoluti per V3, V4, V6
+- Mapping token per colors, typography, spacing, ecc.
+- Source files per estrazione automatica
+- Opzioni per backup, dry-run, output format
+
+### Esempio Configurazione
+```json
+{
+  "version": "2.0",
+  "workspaceRoot": "/path/to/workspace",
+  "paths": {
+    "v3": "/path/to/v3",
+    "v4": "/path/to/v4",
+    "v6": "/path/to/v6"
+  },
+  "tokenMappings": {
+    "colors": {
+      "source": {
+        "v4": [
+          { "path": "{v4}/src/styles/globals.css", "type": "css" }
+        ]
+      },
+      "primary": { "v4Name": "--primary" }
+    }
+  }
 }
 ```
 
-### 2.2 Solution Overview
-Unified Migration Tool che:
-- Estrae token dai sorgenti V4 (CSS/SCSS)
-- Converte colori HEX/RGBA → HSL (compatibile Tailwind/vars)
-- Genera token V6 (TypeScript + CSS variables)
-- Migra componenti (imports/classi/props)
-- Valida modifiche prima di applicarle
-- Esegue backup e supporta rollback
-- Supporta CLI e interfaccia web
+### Config Wizard
+Setup interattivo per guidare l'utente nella configurazione iniziale
 
-### 2.3 Core Value Proposition
-| Feature | V4 Manual Migration | Unified Tool |
-| --- | --- | --- |
-| Tempo migrazione | 3–5 giorni | < 1 ora |
-| Accuratezza colori | ~85% | 100% |
-| Rollback | ❌ No | ✅ Sì |
-| Preview modifiche | ❌ No | ✅ Sì |
-| Migrazione componenti | ❌ Manuale | ✅ Automatizzata |
-| Validazione | ❌ No | ✅ Pre-flight checks |
+## Interfaccia Web
 
----
+### Panoramica
+- Dashboard web per eseguire migrazioni senza CLI
+- Server Express su `http://localhost:3000`
+- Validazione in tempo reale dei path
+- Esecuzione comandi con output in tempo reale
 
-## 3. Product Evolution History
+### Endpoint API
+- `POST /run-script`: Esegue script di migrazione
+- `POST /validate-paths`: Valida i path forniti
+- `GET /info`: Informazioni sul server
+- `GET /commands`: Comandi disponibili
 
-### 3.1 Phase 1: Initial Prototypes (v0, v1, v2, v3)
+### Modifiche CLI Necessarie
+- Aggiunta opzioni `--source` e `--destination` per sovrascrivere i path
+- Modifica della funzione `loadConfig` per accettare override
 
-#### 3.1.1 migration-v0 (First CLI Tool)
-- Creato: Early 2024
-- Tipo: CLI Tool + API Server
-- Stato: ✅ Validato, archiviato
-- Feature:
-  - ✅ CLI con Commander.js
-  - ✅ Migrazione design token da config
-  - ✅ Migrazione componenti
-  - ✅ Express API server per analisi
-  - ✅ Tailwind analyzer
-  - ✅ Script `apply-tokens.js`
-- Limitazioni:
-  - ❌ No estrazione automatica (richiede config manuale)
-  - ❌ Scrive nella dir corrente (non nel target)
-  - ❌ No supporto SCSS
-- Validazione: ✅ Test di produzione, set di feature validato
+## Piano di Implementazione
 
-#### 3.1.2 migration-v1 (First Astro App)
-- Creato: Mid 2024
-- Tipo: Astro + React App
-- Stato: ✅ Validato, superato da v2
-- Feature:
-  - ✅ Prima app target V6
-  - ✅ Token base (colors)
-  - ✅ 3 componenti migrati (Button, LoadingSpinner, ThemeToggle)
-  - ✅ Inclusi script migrazione
-- Limitazioni:
-  - ❌ Set componenti limitato
-  - ❌ No integrazione shadcn/ui
-  - ❌ Sistema token incompleto
-- Validazione: ✅ POC validato
+### Fase 1: Foundation (Settimana 1)
+- Setup progetto, struttura directory, dipendenze
+- Config loader e validator
+- CLI base
 
-#### 3.1.3 migration-v2 (Complete Astro App)
-- Creato: Late 2024
-- Tipo: Astro + React App
-- Stato: ✅ App production-ready
-- Feature:
-  - ✅ App V6 completa
-  - ✅ shadcn/ui (49 componenti)
-  - ✅ Token completi (colors, typography, spacing)
-  - ✅ 8+ componenti custom migrati
-  - ✅ Script `update-imports.js`
-- Componenti:
-  - AddCollectionDialog, AddLinkDialog, Dashboard (+ sub), Footer,
-    ListDialog, Navbar (+ sub), RandomLinksDisplay, ThemeToggle
-- Validazione: ✅ Pronta per produzione
+### Fase 2: Token Migration Core (Settimana 2)
+- CSS extractor, SCSS extractor, token mapper
+- JSON generator, JS generator, index generator
+- Migrazione token principale
 
-#### 3.1.4 migration-v3 (Simplified CLI Tool)
-- Creato: Late 2024
-- Tipo: CLI Tool
-- Stato: ✅ Architettura validata
-- Feature:
-  - ✅ Struttura CLI semplificata
-  - ✅ Scrive direttamente nel path target (fix v0)
-  - ✅ Supporto `lineHeight` in typography
-  - ✅ Token dimensionali completi (spacing, padding, margin, borderRadius, borderWidth)
-  - ✅ Modalità dry-run
-  - ✅ Script `apply-tokens.js`
-- Migliorie vs v0:
-  - ✅ Migliore gestione path
-  - ✅ Supporto token completo
-  - ✅ Codice più pulito
-- Limitazioni:
-  - ❌ Nessuna estrazione automatica
-  - ❌ No API server
+### Fase 3: Token Migration Advanced (Settimana 3)
+- Supporto token dimensionali completi
+- Multi-source support e fallback
+- Validazione token
 
-### 3.2 Phase 2: Analysis & Planning
-- Periodo: Dec 2024 – Jan 2025
-- Stato: ✅ Completo
-- Documenti (validati, presenti nel repo):
-  - `ANALISI_VERSIONI.md` — confronto versioni (v2 best app, v0 best features)
-  - `ANALISI_FATTIBILITA.md` — fattibilità migrazione (70% fattibile)
-  - `CONFRONTO_MIGRAZIONE_TOKEN.md` — metodi estrazione token (v1/v2 auto-extraction migliore)
-  - `MAPPATURA_STILI.md` — mapping completo V4 → V6
-  - `API_WEB_INTERFACE.md` — specifiche interfaccia web
-  - `README.md`, `SUMMARY.md` — overview progetto
+### Fase 4: Component Migration (Settimana 4)
+- Component migrator base
+- Import transformer, class transformer, prop transformer
+- Component validator
 
----
+### Fase 5: Utilities (Settimana 5)
+- Script apply-tokens migliorato
+- Backup/restore system
+- Reporter e logger
 
-## 4. Current State Analysis
-Baseline dal repository attuale (`migration-dev-V0`):
-- CLI (`src/cli.js`)
-  - Opzioni globali: `--source`, `--destination`, `--dry-run`, `--verbose`
-  - Comandi: `setup` (placeholder), `validate`, `tokens`, `colors` (WIP), `typography`
-  - Config: `migration.config.json` (richiesto; esiste `migration.config.json.example`)
-- Tokens
-  - `src/tokens/migrate-tokens.js` orchestrazione migrazione token
-  - Estrattori/generatori/mappers presenti nelle rispettive cartelle
-- Color Conversion
-  - `src/utils/color-converter.js` con funzioni: `hexToHsl`, `rgbaToHsl`, `rgbaStringToHsl`, `convertColorToHsl`
-  - HSL formattato per Tailwind/CSS variables
-- Component Migration
-  - `src/components/migrate-components.js` (presente) + transformers/validators
-- Web Interface (API)
-  - `api/server.js` (Express): esecuzione script CLI, validazione path, elenco comandi
-  - `api/public/index.html`, `api/public/app.js`: UI per inserire `source/destination`, selezione comandi, dry-run
-- Known Gaps / TODO
-  - `colors` command: segnato “not yet implemented” in CLI
-  - Setup wizard interattivo: non implementato
-  - Salvataggio configurazioni via web UI: non presente (inserimento manuale ogni esecuzione)
+### Fase 6: Analysis & API (Settimana 6)
+- Tailwind analyzer, component analyzer
+- API Express e dashboard web
 
----
+### Fase 7: Testing & Polish (Settimana 7)
+- Test unitari e di integrazione
+- Documentazione e esempi
+- Error handling migliorato
 
-## 5. Technical Requirements
-- Runtime: Node.js ≥ 18, npm ≥ 9 (target macOS/Linux)
-- Package Manager: npm
-- Linguaggi: JavaScript/TypeScript (CLI/AST trasf.), Astro/React (target app)
-- Dipendenze chiave:
-  - CLI: commander
-  - Server API: express, child_process
-  - Tooling: ripgrep (per ricerche), Tailwind (target HSL vars)
-- Configurazione:
-  - `migration.config.json` con `workspaceRoot`, `paths` (v3/v4/v6), `options`
-  - Token mappings e component mappings (vedi `migration.config.json.example`)
-- Requisiti I/O:
-  - Input: path `source`, `destination`, config opzionale
-  - Output: token V6 (TS/CSS), componenti aggiornati, report migrazione, backup
+## Testing e Qualità
+
+### Strategia di Testing
+- Unit test per funzioni di conversione, estrazione, validazione
+- Integration test per il flusso di migrazione completo
+- Fixture con progetti di esempio
+
+### Metriche di Qualità
+- 100% backward compatibility con config v1.0
+- Zero breaking changes durante la migrazione
+- Dry-run sempre disponibile
+- Logging dettagliato e report completo
+
+## Sicurezza e Backup
+
+### Backup Automatico
+- Creazione backup prima di ogni migrazione
+- Rollback in caso di errori
+- Gestione di multiple backup
+
+### Sicurezza API
+- Autenticazione tramite API key per uso in produzione
+- Rate limiting e validazione path
+- HTTPS per deployment pubblico
+
+## Deployment
+
+### Compatibilità
+- Server Linux/Unix, Windows, container Docker, cloud services
+- Node.js >= 18.0.0
+- Accesso al filesystem con path assoluti
+
+### Deployment con Docker
+- Dockerfile e docker-compose.yml per containerizzazione
+- Volume mounts per accesso ai progetti
+
+### API su Host
+- Avvio con PM2 o systemd
+- Reverse proxy con Nginx per HTTPS
+
+## Roadmap
+
+### Fase 1 (Settimane 1-2)
+- Completamento foundation e token migration core
+
+### Fase 2 (Settimane 3-4)
+- Token migration advanced e component migration
+
+### Fase 3 (Settimane 5-6)
+- Utilities e analysis & API
+
+### Fase 4 (Settimana 7)
+- Testing, documentazione, rilascio
+
+## Appendici
+
+### A. Documentazione Collegata
+- [README.md](./README.md): Quick start e comandi base
+- [PLAN.md](./PLAN.md): Piano completo del progetto
+- [KIRO-SPEC.md](./KIRO-SPEC.md): Specifiche per lo sviluppo con Kiro
+- [CONFRONTO_MIGRAZIONE_TOKEN.md](./CONFRONTO_MIGRAZIONE_TOKEN.md): Confronto dettagliato delle versioni
+- [MAPPATURA_STILI.md](./MAPPATURA_STILI.md): Mappatura stili da Astroflux-V4 a Openfav-Dev
+- [COLOR_CONVERSION_GUIDE.md](./COLOR_CONVERSION_GUIDE.md): Guida conversione colori
+- [FLUSSO_MIGRAZIONE.md](./FLUSSO_MIGRAZIONE.md): Flusso di migrazione CLI e web
+- [DEPLOYMENT_HOST.md](./DEPLOYMENT_HOST.md): Guida deployment su host
+- [CLI_MODIFICATIONS.md](./CLI_MODIFICATIONS.md): Modifiche necessarie al CLI
+
+### B. Note Tecniche
+- **Conversione Colori**: Tutti i colori devono essere convertiti in HSL per OpenFav V6
+- **Component Classes**: Le classi componenti devono essere convertite in utility classes o preservate
+- **Design Tokens**: Centrali per il flusso di migrazione, generati in TypeScript
+
+### C. Rischi e Mitigazione
+- **Path non validi**: Validazione pre-esecuzione
+- **Errori conversione**: Fallback e logging dettagliato
+- **Permessi filesystem**: Controllo pre-migrazione
 
 ---
 
-## 6. Feature Specifications
-
-### 6.1 Automated Token Extraction
-- Input: CSS/SCSS in V3/V4 (Tailwind, variabili CSS)
-- Output: token normalizzati (colors, typography, spacing, ecc.)
-- Funzioni:
-  - Scanner file sorgente
-  - Parser token e variabili
-  - Mappatura verso schema V6
-- Validazione:
-  - Conflitti di nomi, token mancanti, formati non supportati
-
-### 6.2 Color Format Conversion (HEX/RGBA → HSL)
-- Input: colori `#RRGGBB`, `rgb(...)`, `rgba(...)`
-- Output: stringhe HSL compatibili con `hsl(var(--color-...))`
-- Algoritmi: basati su `color-converter.js`
-- Copertura:
-  - Varianti (DEFAULT, hover, light, dark)
-  - Dark mode (override `.dark { ... }`)
-- Accuratezza: 100% rispetto agli algoritmi definiti, con test unitari
-
-### 6.3 Component Migration
-- Ambito: React/Astro components
-- Trasformazioni:
-  - Import paths (es. shadcn/ui, componenti locali)
-  - Classi (Tailwind → nuove variabili HSL)
-  - Props (rinomina/normalizzazione)
-- Validatori:
-  - `src/components/validators/` (props/classi mancanti, breaking changes)
-- Dry-run e report: anteprima diff, senza modifiche reali
-
-### 6.4 Web Interface
-- API Server: `api/server.js`
-- UI: `api/public/index.html`, `api/public/app.js`
-- Funzioni:
-  - Inserimento/validazione `source/destination`
-  - Selezione comandi (tokens, colors, components)
-  - Esecuzione con `dry-run`
-  - Output dettagliato nel browser
-- Limiti attuali:
-  - Nessun salvataggio persistente della configurazione
-  - Richiede avvio server API
-
-### 6.5 Validation, Backup & Rollback
-- Pre-flight validation:
-  - Verifica path e permessi
-  - Verifica conflitti token e componenti
-- Backup automatico:
-  - Copia dei file prima della migrazione
-- Rollback:
-  - Ripristino da backup in caso di errori
-
----
-
-## 7. Implementation Roadmap
-
-### Fase A — Foundations (0–35%) [In corso]
-- [x] CLI di base con opzioni globali
-- [x] API server e web UI iniziale
-- [x] Color converter (utilità)
-- [x] Struttura tokens (estrattori/generatori/mappers)
-- [ ] Comando `colors` implementato end-to-end
-- [ ] Setup wizard interattivo (CLI)
-
-### Fase B — Token & Components (35–70%)
-- [ ] Estrazione automatica tokens (CSS/SCSS)
-- [ ] Migrazione componenti core (Button, ThemeToggle, Navbar, Footer)
-- [ ] Validatori componenti e tokens
-- [ ] Report dettagliato (JSON + Markdown)
-
-### Fase C — Production hardening (70–100%)
-- [ ] Backup/rollback robusti
-- [ ] Persistenza configurazioni via web UI
-- [ ] Ottimizzazione performance (<5 minuti per progetto tipico)
-- [ ] Copertura test ≥ 85%, smoke & integration tests
-- [ ] Documentazione completa (Guide, How-to, API)
-
-Milestone di rilascio:
-- v2.0-beta: completamento Fase B
-- v2.0: completamento Fase C
-
----
-
-## 8. Success Metrics
-- Accuratezza conversione colori: 100%
-- Tempo medio migrazione: < 60 minuti
-- Automazione: ≥ 90% del flusso senza intervento manuale
-- Incidenza rollback: < 2% dei casi
-- Tasso adozione tool: ≥ 80% tra progetti target
-- Soddisfazione sviluppatori: ≥ 4.5/5 (survey interna)
-
----
-
-## 9. Appendices
-- Repository Structure (estratto):
-  - `src/cli.js` — CLI principale
-  - `src/utils/color-converter.js` — utilità conversione colori
-  - `src/tokens/migrate-tokens.js` — orchestrazione tokens
-  - `src/components/migrate-components.js` — migrazione componenti
-  - `api/server.js`, `api/public/index.html`, `api/public/app.js` — interfaccia web
-  - `migration.config.json.example` — esempio configurazione
-- Documenti utili (presenti nel repo):
-  - `ANALISI_VERSIONI.md`, `ANALISI_FATTIBILITA.md`, `MAPPATURA_STILI.md`
-  - `API_WEB_INTERFACE.md`, `SUMMARY.md`, `README.md`
-- Note:
-  - Il PRD consolida i documenti validati e riflette lo stato corrente del repository indicato.
-  - Sezioni incomplete/da dettagliare saranno aggiornate man mano che le feature avanzano.
+**Fine del PRD**
