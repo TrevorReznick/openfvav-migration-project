@@ -1,70 +1,130 @@
-# Comandi per la Migrazione
+# OpenFav Migration Tool - Comandi
 
-## Setup Iniziale
+## Installazione
+
 ```bash
 # Clonare il repository
-git clone [url-del-repository]
+git clone [repository-url]
 
 # Installare le dipendenze
 npm install
-# oppure
-yarn install
-
-# Configurare le variabili d'ambiente
-cp .env.example .env
 ```
 
-## Comandi di Migrazione
+## Comandi Principali
 
-### Database
+### Setup e Configurazione
 ```bash
-# Eseguire le migrazioni
-npx sequelize-cli db:migrate
+# Avvia la configurazione iniziale
+npm run setup
 
-# Annullare l'ultima migrazione
-npx sequelize-cli db:migrate:undo
-
-# Eseguire i seed
-npx sequelize-cli db:seed:all
+# Verifica la configurazione
+npm run validate
 ```
 
-### Sviluppo
+### Migrazione
 ```bash
-# Avviare il server di sviluppo
-npm run dev
-# oppure
-yarn dev
-
-# Eseguire i test
-npm test
-# oppure
-yarn test
-```
-
-### Build e Produzione
-```bash
-# Creare la build di produzione
-npm run build
-# oppure
-yarn build
-
-# Avviare in produzione
+# Esegui tutte le migrazioni
 npm start
-# oppure
-yarn start
+
+# Migrazione specifica per i token
+npm run migrate:tokens
+
+# Migrazione dei colori
+npm run migrate:colors
+
+# Migrazione della tipografia
+npm run migrate:typography
+
+# Migrazione degli spazi
+npm run migrate:spacing
+
+# Migrazione dei componenti
+npm run migrate:components
 ```
 
-## Struttura delle Cartelle
-- `/migrations` - File di migrazione del database
-- `/models` - Modelli del database
-- `/routes` - Route dell'API
-- `/config` - File di configurazione
-- `/public` - File statici
+### Analisi
+```bash
+# Esegui tutte le analisi
+npm run analyze
+
+# Analizza i token
+npm run analyze:tokens
+
+# Analisi specifica per Tailwind
+npm run analyze:tailwind
+```
+
+### Utilità
+```bash
+# Applica i token
+npm run apply-tokens
+
+# Aggiorna gli import
+npm run update-imports
+
+# Crea un backup
+npm run backup
+
+# Genera report
+npm run report
+```
+
+### API
+```bash
+# Avvia il server API
+npm run api
+```
+
+## Sviluppo
+
+### Test
+```bash
+# Esegui tutti i test
+npm test
+
+# Esegui i test in modalità watch
+npm run test:watch
+
+# Genera report di copertura
+npm run test:coverage
+
+# Esegui test con Vitest
+npm run test:vitest
+```
+
+### Strumenti per Sviluppatori
+```bash
+# Pulisci i file generati
+npx rimraf dist
+
+# Esegui più comandi in parallelo
+npx npm-run-all --parallel api test:watch
+```
+
+## Requisiti di Sistema
+- Node.js >= 18.0.0
+- npm o yarn
+
+## Struttura del Progetto
+- `/src` - Codice sorgente principale
+- `/api` - Server API
+- `/analyzers` - Script di analisi
+- `/scripts` - Script di utilità
+- `/src/utils` - Utilità varie
 
 ## Variabili d'Ambiente
-- `PORT` - Porta del server
-- `DB_HOST` - Host del database
-- `DB_NAME` - Nome del database
-- `DB_USER` - Utente del database
-- `DB_PASS` - Password del database
-- `NODE_ENV` - Ambiente (development/production)
+Crea un file `.env` nella root del progetto con le seguenti variabili:
+```
+# Configurazione del server
+PORT=3000
+
+# Configurazione del database (se applicabile)
+DB_HOST=localhost
+DB_NAME=openfav
+DB_USER=user
+DB_PASS=password
+```
+
+## Troubleshooting
+- Se incontri problemi con i moduli ES, assicurati di utilizzare Node.js 18 o superiore
+- Per problemi di permessi, esegui i comandi con i permessi di amministratore se necessario
