@@ -1,0 +1,107 @@
+{
+  "timestamp": "2025-11-20T18:33:12.162Z",
+  "config": {
+    "sourceDir": "/Users/default/Sviluppo/nodejs/projects/openfav-migration/astroflux-lovable",
+    "pagesDir": "/Users/default/Sviluppo/nodejs/projects/openfav-migration/astroflux-lovable/src/pages"
+  },
+  "pages": {
+    "AllCollections.tsx": {
+      "path": "/Users/default/Sviluppo/nodejs/projects/openfav-migration/astroflux-lovable/src/pages/AllCollections.tsx",
+      "imports": [
+        "../components/Navbar",
+        "../components/RandomLinksDisplay"
+      ],
+      "components": [
+        "Navbar",
+        "ArrowLeft",
+        "Folder",
+        "RandomLinksDisplay"
+      ]
+    },
+    "AllLists.tsx": {
+      "path": "/Users/default/Sviluppo/nodejs/projects/openfav-migration/astroflux-lovable/src/pages/AllLists.tsx",
+      "imports": [
+        "../components/Navbar",
+        "../components/RandomLinksDisplay"
+      ],
+      "components": [
+        "Navbar",
+        "ArrowLeft",
+        "Folder",
+        "Plus",
+        "Edit",
+        "Trash2",
+        "RandomLinksDisplay"
+      ]
+    },
+    "Auth.tsx": {
+      "path": "/Users/default/Sviluppo/nodejs/projects/openfav-migration/astroflux-lovable/src/pages/Auth.tsx",
+      "imports": [],
+      "components": [
+        "Mail",
+        "Github"
+      ]
+    },
+    "Index.tsx": {
+      "path": "/Users/default/Sviluppo/nodejs/projects/openfav-migration/astroflux-lovable/src/pages/Index.tsx",
+      "imports": [
+        "@/components/Navbar",
+        "@/components/Dashboard",
+        "@/components/Footer"
+      ],
+      "components": [
+        "Icon",
+        "FeatureCard",
+        "FeatureListItem",
+        "BrowserButton",
+        "Circle",
+        "Play",
+        "User",
+        "StepCard",
+        "CheckCircle",
+        "Code",
+        "Server",
+        "Sparkles",
+        "Cpu",
+        "Shield",
+        "Cloud",
+        "Database",
+        "Navbar",
+        "Dashboard",
+        "Footer",
+        "Landing"
+      ]
+    },
+    "LinksDisplay.tsx": {
+      "path": "/Users/default/Sviluppo/nodejs/projects/openfav-migration/astroflux-lovable/src/pages/LinksDisplay.tsx",
+      "imports": [
+        "../components/Navbar"
+      ],
+      "components": [
+        "Navbar",
+        "Search",
+        "ExternalLink",
+        "Tag",
+        "Calendar",
+        "Heart"
+      ]
+    },
+    "ListDetail.tsx": {
+      "path": "/Users/default/Sviluppo/nodejs/projects/openfav-migration/astroflux-lovable/src/pages/ListDetail.tsx",
+      "imports": [
+        "../components/Navbar"
+      ],
+      "components": [
+        "Navbar",
+        "ArrowLeft",
+        "LinkIcon",
+        "Trash2"
+      ]
+    },
+    "NotFound.tsx": {
+      "path": "/Users/default/Sviluppo/nodejs/projects/openfav-migration/astroflux-lovable/src/pages/NotFound.tsx",
+      "imports": [],
+      "components": []
+    }
+  }
+}

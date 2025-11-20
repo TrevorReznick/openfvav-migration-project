@@ -837,6 +837,96 @@ async function main() {
       console.log(chalk.gray('This will analyze the project structure and provide insights.'));
     });
 
+  program
+    .command('migrate:components')
+    .description('Migra i componenti da una versione all\'altra')
+    .option('--source-version <version>', 'Versione sorgente (es. v3, v4)', 'v3')
+    .option('--target-version <version>', 'Versione di destinazione (es. v4, v6)', 'v6')
+    .option('--dry-run', 'Simula la migrazione senza apportare modifiche', false)
+    .action(async (options) => {
+      try {
+        const config = loadConfig();
+        const { sourceVersion, targetVersion, dryRun } = options;
+
+        console.log(chalk.blue(`🚀 Avvio migrazione componenti da ${sourceVersion} a ${targetVersion}...`));
+
+        if (!config.paths?.[sourceVersion] || !config.paths?.[targetVersion]) {
+          throw new Error(`Percorsi non configurati per le versioni ${sourceVersion} -> ${targetVersion}`);
+        }
+
+        const sourcePath = config.paths[sourceVersion];
+        const targetPath = config.paths[targetVersion];
+
+        console.log(chalk.blue(`📂 Origine: ${sourcePath}`));
+        console.log(chalk.blue(`📁 Destinazione: ${targetPath}`));
+
+        const componentConfig = config.components || {};
+        const componentsPath = join(sourcePath, 'src/components');
+        console.log(chalk.blue(`🔍 Analisi componenti in ${componentsPath}...`));
+
+        const components = analyzeComponents(componentsPath, {
+          exclude: componentConfig.exclude || ['Legacy', 'Deprecated', 'test', '__tests__']
+        });
+        if (components.length === 0) {
+          console.log(chalk.yellow('⚠️  Nessun componente trovato da migrare'));
+          return;
+        }
+        console.log(chalk.blue(`📊 Trovati ${components.length} componenti da migrare`));
+
+        const routes = generateRoutesConfig(components, {
+          basePath: '/',
+          targetPath: join(targetPath, 'src/react/components')
+        });
+
+        const targetComponentsPath = join(targetPath, 'src/react/components');
+        console.log(chalk.blue(`🔄 Creazione componenti in ${targetComponentsPath}...`));
+        const { created, skipped } = await createComponents(components, {
+          targetPath: targetComponentsPath,
+          dryRun
+        });
+
+        const routeConfigPath = join(targetPath, 'src/config/routes.ts');
+        console.log(chalk.blue(`📝 Generazione configurazione route in ${routeConfigPath}...`));
+        if (!dryRun) {
+          await generateRouteConfig(routes, { targetPath: routeConfigPath });
+        }
+
+        // Riepilogo
+        console.log(chalk.green('\n✅ Migrazione completata con successo!'));
+        console.log(chalk.green(`✅ ${created.length} componenti creati`));
+        if (skipped.length > 0) {
+          console.log(chalk.yellow(`⚠️  ${skipped.length} componenti saltati`));
+          if (dryRun) {
+            console.log(chalk.yellow('   (modalità dry-run attiva)'));
+          }
+        }
+        console.log(chalk.blue('\n🔍 Riepilogo route generate:'));
+        routes.forEach(route => {
+          console.log(`   ${chalk.cyan(route.path.padEnd(20))} → ${chalk.green(route.componentName)}`);
+        });
+      } catch (error) {
+        console.error(chalk.red(`\n❌ Errore durante la migrazione:`), error.message);
+        if (error.stack) {
+          console.error(chalk.gray(error.stack));
+        }
+        process.exit(1);
+      }
+    });
+
+  // Funzione per generare il file di configurazione delle route
+  async function generateRouteConfig(routes, options) {
+    const { targetPath } = options;
+    const routeImports = routes.map(route => 
+      `const ${route.componentName} = lazy(() => import('${route.importPath}'));`
+    ).join('\n');
+    const routeDefinitions = routes.map(route => 
+      `  {\n    path: '${route.path}',\n    component: ${route.componentName},\n    exact: true\n  }`
+    ).join(',\n');
+    const routeConfig = `// File generato automaticamente - Non modificare manualmente\n\nimport { lazy } from 'react';\n\n${routeImports}\n\nexport const routes = [\n${routeDefinitions}\n];`;
+    await mkdirSync(dirname(targetPath), { recursive: true });
+    await writeFileSync(targetPath, routeConfig, 'utf-8');
+  }
+
   program.parse(process.argv);
 
   // Show help if no command provided
