@@ -1,0 +1,48 @@
+{
+  "timestamp": "2025-11-22T09:29:08.480Z",
+  "migrated": {
+    "pages": [
+      {
+        "name": "Index",
+        "path": "../../../../nodejs/projects/openfav-migration/astroflux-V4/src/pages/Index.tsx",
+        "components": [
+          "Icon",
+          "Navbar",
+          "FeatureCard"
+        ],
+        "type": "pages-directory"
+      },
+      {
+        "name": "spa-app",
+        "path": "../../../../nodejs/projects/openfav-migration/astroflux-V4/src/App.tsx",
+        "components": [
+          "BrowserRouter",
+          "Index"
+        ],
+        "type": "root-spa"
+      },
+      {
+        "name": "spa-main",
+        "path": "../../../../nodejs/projects/openfav-migration/astroflux-V4/src/main.tsx",
+        "components": [
+          "App"
+        ],
+        "type": "root-spa"
+      }
+    ],
+    "components": [
+      "Navbar.tsx",
+      "SimpleNavbar.tsx",
+      "ThemeToggle.tsx"
+    ]
+  },
+  "errors": [],
+  "componentMap": {
+    "Icon": "@/react/components/Icon",
+    "Navbar": "@/react/components/Navbar",
+    "FeatureCard": "@/react/components/FeatureCard",
+    "BrowserRouter": "@/react/components/BrowserRouter",
+    "Index": "@/react/components/Index",
+    "App": "@/react/components/App"
+  }
+}

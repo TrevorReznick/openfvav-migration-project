@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
 import { fileURLToPath } from 'url';
-import { dirname, join, isAbsolute, resolve } from 'path';
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { dirname, join, isAbsolute, resolve, basename } from 'path';
+import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, copyFileSync } from 'fs';
 import { Command } from 'commander';
 import inquirer from 'inquirer';
 import chalk from 'chalk';
@@ -581,6 +581,8 @@ async function main() {
   program.option('--destination <path>', 'Override destination path (V6 - destinazione migrazione)');
   program.option('--dry-run', 'Run without making any changes');
   program.option('--verbose', 'Show detailed output');
+  program.option('--preserve-custom', 'Preserve custom configurations during migration (default: true)');
+  program.option('--debug', 'Enable debug mode for CSS generation (comment out color variables)');
 
   // Setup command
   program
@@ -660,6 +662,12 @@ async function main() {
       }
       config.options = { ...config.options, dryRun: opts.dryRun || false };
       
+      // Aggiungi opzione di debug
+      if (opts.debug) {
+        console.log(chalk.blue('🐛 Debug mode enabled - color variables will be commented out'));
+        config.options = { ...config.options, debug: true };
+      }
+      
       try {
         const report = await migrateDesignTokens(config);
         console.log(chalk.blue('\n📊 Migration Report:'));
@@ -689,6 +697,21 @@ async function main() {
       } else {
         config.options = { ...config.options, dryRun: false };
       }
+      
+      // Aggiungi opzione di debug
+      if (opts.debug) {
+        console.log(chalk.blue('🐛 Debug mode enabled - color variables will be commented out'));
+        config.options = { ...config.options, debug: true };
+      }
+      
+      // Aggiungi opzione di preservazione
+      const preserveCustom = opts.preserveCustom !== false; // default true
+      if (preserveCustom) {
+        console.log(chalk.blue('🛡️  Custom preservation enabled'));
+      } else {
+        console.log(chalk.yellow('⚠️  Custom preservation disabled'));
+      }
+      config.options = { ...config.options, preserveCustom };
       
       try {
         const report = await migrateColors(config);
@@ -835,6 +858,82 @@ async function main() {
     .action(async () => {
       console.log(chalk.yellow('⚠️  Analysis not yet implemented'));
       console.log(chalk.gray('This will analyze the project structure and provide insights.'));
+    });
+
+  // Restore command
+  program
+    .command('restore')
+    .description('Restore files from backup')
+    .option('--file <filename>', 'Specific file to restore (e.g., globals.css, tailwind.config.ts)')
+    .option('--list', 'List available backup files')
+    .action(async (options) => {
+      const opts = program.opts();
+      const config = await loadConfig({
+        source: opts.source,
+        destination: opts.destination
+      });
+      
+      const destPath = config.paths.v6;
+      
+      if (options.list) {
+        // Lista backup disponibili
+        console.log(chalk.blue('\n📋 Available backup files:'));
+        
+        const files = ['globals.css', 'tailwind.config.ts'];
+        for (const file of files) {
+          const filePath = join(destPath, file === 'globals.css' ? 'src/styles/globals.css' : 'tailwind.config.ts');
+          const backupPattern = `${filePath}.backup.*`;
+          
+          try {
+            const backupFiles = readdirSync(dirname(filePath))
+              .filter(f => f.startsWith(basename(filePath) + '.backup.'))
+              .sort()
+              .reverse();
+              
+            if (backupFiles.length > 0) {
+              console.log(chalk.green(`\n${file}:`));
+              backupFiles.forEach(backup => {
+                const timestamp = backup.split('.backup.')[1].replace(/-/g, ':');
+                console.log(chalk.gray(`  📦 ${backup} (${timestamp})`));
+              });
+            }
+          } catch (error) {
+            // Ignora file non trovati
+          }
+        }
+        return;
+      }
+      
+      if (options.file) {
+        const fileName = options.file;
+        const filePath = fileName === 'globals.css' 
+          ? join(destPath, 'src/styles/globals.css')
+          : join(destPath, 'tailwind.config.ts');
+          
+        // Trova backup più recente
+        const backupPattern = `${filePath}.backup.*`;
+        try {
+          const backupFiles = readdirSync(dirname(filePath))
+            .filter(f => f.startsWith(basename(filePath) + '.backup.'))
+            .sort()
+            .reverse();
+            
+          if (backupFiles.length === 0) {
+            console.log(chalk.yellow(`⚠️  No backup found for ${fileName}`));
+            return;
+          }
+          
+          const latestBackup = join(dirname(filePath), backupFiles[0]);
+          copyFileSync(latestBackup, filePath);
+          
+          console.log(chalk.green(`✅ Restored ${fileName} from backup`));
+          console.log(chalk.gray(`   From: ${latestBackup}`));
+        } catch (error) {
+          console.error(chalk.red(`❌ Restore failed: ${error.message}`));
+        }
+      } else {
+        console.log(chalk.yellow('⚠️  Please specify --file or --list option'));
+      }
     });
 
   program

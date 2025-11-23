@@ -16,6 +16,7 @@
     "migrate:typography": "node src/cli.js typography",
     "migrate:spacing": "node src/cli.js spacing",
     "migrate:components": "node src/cli.js components",
+    "restore": "node src/cli.js restore",
     "apply-tokens": "node scripts/apply-tokens.js",
     "update-imports": "node scripts/update-imports.js",
     "analyze": "node src/cli.js analyze",

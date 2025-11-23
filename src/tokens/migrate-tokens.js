@@ -2,12 +2,388 @@
  * Modulo principale per la migrazione dei design tokens
  */
 
+import fs from 'fs';
+import path from 'path';
 import { join } from 'path';
-import { existsSync, mkdirSync, writeFileSync, readFileSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import chalk from 'chalk';
 import { extractTokensFromTailwindConfig } from './extractors/tailwind-config-extractor.js';
 import { extractTokensFromCss } from './extractors/css-extractor.js';
 import { convertColorToHsl, hexToHsl, rgbaStringToHsl } from '../utils/color-converter.js';
+
+// === FUNZIONI DI PRESERVAZIONE ===
+
+/**
+ * Crea un backup automatico del file con timestamp
+ */
+function createBackup(filePath) {
+  if (!existsSync(filePath)) return null;
+  
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const backupPath = `${filePath}.backup.${timestamp}`;
+  
+  try {
+    fs.copyFileSync(filePath, backupPath);
+    console.log(chalk.blue(`  📦 Backup creato: ${backupPath}`));
+    return backupPath;
+  } catch (error) {
+    console.warn(chalk.yellow(`  ⚠️  Impossibile creare backup: ${error.message}`));
+    return null;
+  }
+}
+
+/**
+ * Estrae il contenuto di un blocco bilanciato (gestisce le parentesi annidate)
+ */
+function extractBlockContent(source, startKeyword) {
+  const startIndex = source.indexOf(startKeyword);
+  if (startIndex === -1) return null;
+
+  let openBraces = 0;
+  let contentStartIndex = -1;
+  let contentEndIndex = -1;
+  let foundStart = false;
+
+  for (let i = startIndex; i < source.length; i++) {
+    if (source[i] === '{') {
+      if (!foundStart) {
+        foundStart = true;
+        contentStartIndex = i; // Include la graffa di apertura per ora
+      }
+      openBraces++;
+    } else if (source[i] === '}') {
+      openBraces--;
+      if (foundStart && openBraces === 0) {
+        contentEndIndex = i + 1; // Include la graffa di chiusura
+        break;
+      }
+    }
+  }
+
+  if (contentStartIndex !== -1 && contentEndIndex !== -1) {
+    // Ritorna l'intero blocco (es. "@layer utilities { ... }")
+    return source.substring(startIndex, contentEndIndex);
+  }
+  
+  return null;
+}
+
+/**
+ * Versione corretta di extractCustomSections
+ */
+function extractCustomSections(cssContent) {
+  const customSections = {
+    utilities: '',
+    customScrollbar: '',
+    customVariables: '',
+    otherCustom: ''
+  };
+  
+  // 1. Estrai intero blocco @layer utilities in modo sicuro
+  const utilitiesBlock = extractBlockContent(cssContent, '@layer utilities');
+  if (utilitiesBlock) {
+    // Rimuoviamo il wrapper @layer utilities { } per prendere solo il contenuto interno
+    const innerContent = utilitiesBlock
+      .replace(/@layer utilities\s*\{/, '') // Rimuove inizio
+      .replace(/\}\s*$/, ''); // Rimuove fine
+    customSections.utilities = innerContent;
+  }
+  
+  // 2. Estrai fix scrollbar e pseudo-elementi custom (Regex va bene qui se non sono annidati complessi)
+  const scrollbarMatches = cssContent.match(/::-webkit-scrollbar[\s\S]*?\}/g);
+  if (scrollbarMatches) {
+    customSections.customScrollbar = scrollbarMatches.join('\n');
+  }
+  
+  // 3. Estrai variabili custom
+  const varMatches = cssContent.match(/--[\w-]+:\s*[^;]+;/g);
+  if (varMatches) {
+    const customVars = varMatches.filter(v => 
+      !v.includes('--color-') && 
+      !v.includes('--background') && 
+      !v.includes('--foreground') &&
+      !v.includes('--primary') &&
+      !v.includes('--secondary') &&
+      !v.includes('--muted') &&
+      !v.includes('--accent') &&
+      !v.includes('--destructive') &&
+      !v.includes('--border') &&
+      !v.includes('--input') &&
+      !v.includes('--ring') &&
+      !v.includes('--radius') // Aggiungi raggio se migrato
+    );
+    customSections.customVariables = customVars.join('\n');
+  }
+  
+  return customSections;
+}
+
+/**
+ * Estrae configurazioni custom da tailwind.config.ts
+ */
+function extractCustomConfig(configContent) {
+  const customConfig = {
+    plugins: [],
+    keyframes: {},
+    animation: {},
+    customColors: {},
+    fontFamily: {},
+    customSpacing: {}
+  };
+  
+  // Estrai plugins
+  const pluginsMatch = configContent.match(/plugins:\s*\[([\s\S]*?)\]/);
+  if (pluginsMatch) {
+    customConfig.plugins = pluginsMatch[1];
+  }
+  
+  // Estrai keyframes esistenti
+  const keyframesMatch = configContent.match(/keyframes:\s*\{([\s\S]*?)\}/);
+  if (keyframesMatch) {
+    customConfig.keyframes = keyframesMatch[1];
+  }
+  
+  // Estrai animation esistenti
+  const animationMatch = configContent.match(/animation:\s*\{([\s\S]*?)\}/);
+  if (animationMatch) {
+    customConfig.animation = animationMatch[1];
+  }
+  
+  // Estrai font family custom
+  const fontFamilyMatch = configContent.match(/fontFamily:\s*\{([\s\S]*?)\}/);
+  if (fontFamilyMatch) {
+    customConfig.fontFamily = fontFamilyMatch[1];
+  }
+  
+  return customConfig;
+}
+
+/**
+ * Genera contenuto globals.css con sezioni preservate
+ */
+function generatePreservedGlobals(colors, customSections, debugMode = false) {
+  const colorVars = Object.entries(colors).map(([key, value]) => {
+    let finalValue = value;
+    
+    // Se sembra una lista di canali HSL (es: "220 10% 20%") senza wrapper hsl()
+    // E non è una variabile var(...)
+    const isRawHslChannels = !value.includes('hsl(') && !value.includes('var(') && /\d/.test(value);
+    
+    if (isRawHslChannels) {
+       finalValue = `hsl(${value})`;
+    }
+    
+    return `  --color-${key}: ${finalValue};`;
+  }).join('\n');
+  
+  // DEBUG: Stampa chiavi e valori sospetti
+  if (debugMode) {
+    console.log('=== DEBUG COLOR VARIABLES ===');
+    Object.entries(colors).forEach(([key, value]) => {
+      let finalValue = value;
+      const isRawHslChannels = !value.includes('hsl(') && !value.includes('var(') && /\d/.test(value);
+      if (isRawHslChannels) {
+         finalValue = `hsl(${value})`;
+      }
+      console.log(`--color-${key}: ${finalValue}`);
+    });
+    console.log('=== END DEBUG ===');
+  }
+  
+  return `@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+${customSections.utilities || ''}
+}
+
+@layer base {
+  :root {
+    /* Design Tokens - Colors (migrated) */
+${debugMode ? '    /* ${colorVars} temporaneamente commentato */' : colorVars}
+
+    /* Custom Variables */
+${customSections.customVariables}
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+${customSections.customScrollbar || ''}
+
+${customSections.otherCustom || ''}`;
+}
+
+/**
+ * Genera tailwind.config.ts con configurazioni preservate
+ */
+function generatePreservedTailwind(colors, keyframes, animations, customConfig) {
+  // Converte colors in formato Tailwind
+  const colorEntries = Object.entries(colors).map(([key, value]) => {
+    let finalValue = value;
+    
+    // Stessa logica: se sono raw channels, avvolgi in hsl() per config di Tailwind
+    const isRawHslChannels = !value.includes('hsl(') && !value.includes('var(') && /\d/.test(value);
+    
+    if (isRawHslChannels) {
+       finalValue = `hsl(${value})`;
+    }
+    
+    return `    '${key}': '${finalValue}'`;
+  }).join(',\n');
+  
+  // Gestione keyframes
+  const hasCustomKeyframes = customConfig.keyframes && customConfig.keyframes.trim().length > 0;
+  const hasMigratedKeyframes = Object.keys(keyframes).length > 0;
+  const keyframesContent = [
+    hasCustomKeyframes ? `        // Keyframes esistenti (preservati)\n${customConfig.keyframes}` : '',
+    hasMigratedKeyframes ? `        // Nuovi keyframes migrati\n${Object.entries(keyframes).map(([key, value]) => `        "${key}": ${JSON.stringify(value)}`).join(',\n')}` : ''
+  ].filter(Boolean).join(',\n');
+  
+  // Gestione animations
+  const hasCustomAnimation = customConfig.animation && customConfig.animation.trim().length > 0;
+  const hasMigratedAnimations = Object.keys(animations).length > 0;
+  const animationsContent = [
+    hasCustomAnimation ? `        // Animazioni esistenti (preservate)\n${customConfig.animation}` : '',
+    hasMigratedAnimations ? `        // Nuove animazioni migrate\n${Object.entries(animations).map(([key, value]) => `        "${key}": "${value}"`).join(',\n')}` : ''
+  ].filter(Boolean).join(',\n');
+  
+  return `import type { Config } from "tailwindcss";
+import { designTokens } from "./src/lib/tokens";
+
+const config: Config = {
+  darkMode: ["class"],
+  content: [
+    "./src/**/*.{js,ts,jsx,tsx,mdx}",
+    "./components/**/*.{js,ts,jsx,tsx,mdx}",
+    "./app/**/*.{js,ts,jsx,tsx,mdx}",
+  ],
+  theme: {
+    container: {
+      center: true,
+      padding: "2rem",
+      screens: {
+        "2xl": "1400px",
+      },
+    },
+    extend: {
+      // Spacing tokens
+      spacing: designTokens.spacing,
+      
+      // Font family (preservato)
+      fontFamily: {
+${customConfig.fontFamily || `        sans: ['var(--font-sans)', 'sans-serif'],
+        mono: ['var(--font-mono)', 'monospace']`}
+      },
+      
+      // Colors
+      colors: {
+        // Design tokens (migrated)
+${colorEntries},
+        
+        // Shadcn/ui component colors
+        primary: {
+          DEFAULT: "hsl(var(--primary))",
+          foreground: "hsl(var(--primary-foreground))"
+        },
+        secondary: {
+          DEFAULT: "hsl(var(--secondary))",
+          foreground: "hsl(var(--secondary-foreground))"
+        },
+        destructive: {
+          DEFAULT: "hsl(var(--destructive))",
+          foreground: "hsl(var(--destructive-foreground))"
+        },
+        muted: {
+          DEFAULT: "hsl(var(--muted))",
+          foreground: "hsl(var(--muted-foreground))"
+        },
+        accent: {
+          DEFAULT: "hsl(var(--accent))",
+          foreground: "hsl(var(--accent-foreground))"
+        },
+        popover: {
+          DEFAULT: "hsl(var(--popover))",
+          foreground: "hsl(var(--popover-foreground))"
+        },
+        card: {
+          DEFAULT: "hsl(var(--card))",
+          foreground: "hsl(var(--card-foreground))"
+        }
+      },
+      
+      // Border radius
+      borderRadius: {
+        lg: "var(--radius)",
+        md: "calc(var(--radius) - 2px)",
+        sm: "calc(var(--radius) - 4px)",
+      },
+      
+      // Keyframes (merged)
+      keyframes: {
+${keyframesContent}
+      },
+      
+      // Animations (merged)
+      animation: {
+${animationsContent}
+      },
+    },
+  },
+  plugins: [
+    require("tailwindcss-animate"),
+    require("@tailwindcss/typography"),
+    require("@tailwindcss/forms"),
+    require("@tailwindcss/aspect-ratio"),
+${customConfig.plugins ? '    ' + customConfig.plugins : ''}
+  ],
+};
+
+export default config;`;
+}
+
+/**
+ * Verifica la validità del file dopo la migrazione
+ */
+function validateMigration(filePath, backupPath) {
+  try {
+    // Verifica che il file esista e sia leggibile
+    if (!existsSync(filePath)) {
+      throw new Error('File non generato');
+    }
+    
+    // Verifica sintassi di base
+    const content = readFileSync(filePath, 'utf-8');
+    if (content.trim().length === 0) {
+      throw new Error('File vuoto');
+    }
+    
+    console.log(chalk.green(`  ✅ Validazione completata: ${filePath}`));
+    return true;
+  } catch (error) {
+    console.error(chalk.red(`  ❌ Validazione fallita: ${error.message}`));
+    
+    // Opzione di restore automatico
+    if (backupPath && existsSync(backupPath)) {
+      console.log(chalk.yellow(`  🔄 Restore automatico dal backup...`));
+      fs.copyFileSync(backupPath, filePath);
+      return false;
+    }
+    
+    return false;
+  }
+}
 
 /**
  * Migra tutti i design tokens da V4 (sorgente) a V6 (destinazione)
@@ -77,7 +453,8 @@ export async function migrateDesignTokens(config) {
     // 5. Aggiorna CSS variables in globals.css
     if (!dryRun) {
       console.log(chalk.blue('\n📝 Updating CSS variables...'));
-      await updateCssVariables(destPath, convertedColors);
+      const debugMode = config.options?.debug || false;
+      await updateCssVariables(destPath, convertedColors, debugMode);
       console.log(chalk.green('  ✓ Updated CSS variables'));
     } else {
       console.log(chalk.yellow('\n📝 [DRY RUN] Would update CSS variables...'));
@@ -177,10 +554,7 @@ async function generateDesignTokens(destPath, colors) {
     mkdirSync(tokensDir, { recursive: true });
   }
 
-  // Genera nuovo file tokens.ts
-  const colorKeys = Object.keys(colors).map(key => `  ${key}: '${key}'`).join(',\n');
-
-  // Nuovo codice
+  // Genera entries dei colori con valori HSL corretti
   const colorEntries = Object.entries(colors).map(([key, value]) => {
     // Usa il valore HSL se già presente, altrimenti converte
     const hslValue = value.includes('%') ? value : convertColorToHsl(value);
@@ -193,73 +567,73 @@ const colors = {
 ${colorEntries}
 } as const;
 
-  const typography = {
-    fontFamily: {
-      base: 'font-sans',
-      mono: 'font-mono'
-    },
-    fontSize: {
-      base: 'text-base',
-      lg: 'text-lg',
-      sm: 'text-sm'
-    }
-  } as const;
+const typography = {
+  fontFamily: {
+    base: 'font-sans',
+    mono: 'font-mono'
+  },
+  fontSize: {
+    base: 'text-base',
+    lg: 'text-lg',
+    sm: 'text-sm'
+  }
+} as const;
 
-  const spacing = {
-    '0': '0',
-    '1': '0.25rem',
-    '2': '0.5rem',
-    '3': '0.75rem',
-    '4': '1rem',
-    '5': '1.25rem',
-    '6': '1.5rem',
-    '8': '2rem',
-    '10': '2.5rem',
-    '12': '3rem',
-    '16': '4rem',
-    '20': '5rem',
-    '24': '6rem',
-    '32': '8rem',
-    '40': '10rem',
-    '48': '12rem',
-    '56': '14rem',
-    '64': '16rem'
-  } as const;
+const spacing = {
+  '0': '0',
+  '1': '0.25rem',
+  '2': '0.5rem',
+  '3': '0.75rem',
+  '4': '1rem',
+  '5': '1.25rem',
+  '6': '1.5rem',
+  '8': '2rem',
+  '10': '2.5rem',
+  '12': '3rem',
+  '16': '4rem',
+  '20': '5rem',
+  '24': '6rem',
+  '32': '8rem',
+  '40': '10rem',
+  '48': '12rem',
+  '56': '14rem',
+  '64': '16rem'
+} as const;
 
-  export const designTokens = {
-    colors,
-    typography,
-    spacing
-  } as const;
+export const designTokens = {
+  colors,
+  typography,
+  spacing
+} as const;
 
-  // Export individual token groups for easier access
-  export const colorTokens = colors;
-  export const typographyTokens = typography;
-  export const spacingTokens = spacing;
+// Export individual token groups for easier access
+export const colorTokens = colors;
+export const typographyTokens = typography;
+export const spacingTokens = spacing;
 
-  // Utility functions for common token operations
-  export const getSpacing = (key: keyof typeof spacing): string => {
-    return \`var(--spacing-\${key})\`;
-  };
+// Utility functions for common token operations
+export const getSpacing = (key: keyof typeof spacing): string => {
+  return \`var(--spacing-\${key})\`;
+};
 
-  export const getColor = (key: keyof typeof colors): string => {
-    return \`var(--color-\${key})\`;
-  };
+export const getColor = (key: keyof typeof colors): string => {
+  return \`var(--color-\${key})\`;
+};
 
-  // Type definitions for better TypeScript support
-  export type ColorToken = keyof typeof colors;
-  export type SpacingToken = keyof typeof spacing;
+// Type definitions for better TypeScript support
+export type ColorToken = keyof typeof colors;
+export type SpacingToken = keyof typeof spacing;
 
-  export default designTokens;
-  `;
+export default designTokens;
+`;
 
   writeFileSync(tokensPath, tokensContent);
 }
 
 /**
- * Aggiorna le CSS variables in globals.css
+ * Aggiorna le CSS variables in globals.css con preservazione
  */
-async function updateCssVariables(destPath, colors) {
+async function updateCssVariables(destPath, colors, debugMode = false) {
   const globalsPath = join(destPath, 'src', 'styles', 'globals.css');
   
   if (!existsSync(globalsPath)) {
@@ -267,39 +641,28 @@ async function updateCssVariables(destPath, colors) {
     return;
   }
 
-  let content = readFileSync(globalsPath, 'utf-8');
-
-  // Aggiungi o aggiorna le CSS variables per i colori
-  const colorVars = [];
-  for (const [colorName, colorValue] of Object.entries(colors)) {
-    if (typeof colorValue === 'string') {
-      colorVars.push(`  --color-${colorName}: ${colorValue};`);
-    } else if (typeof colorValue === 'object') {
-      // Colore con varianti
-      for (const [variant, value] of Object.entries(colorValue)) {
-        const varName = variant === 'DEFAULT' ? colorName : `${colorName}-${variant}`;
-        colorVars.push(`  --color-${varName}: ${value};`);
-      }
-    }
-  }
-
-  // Inserisci le variabili nel :root se non esistono già
-  if (colorVars.length > 0) {
-    const rootPattern = /(:root\s*\{)/;
-    if (rootPattern.test(content)) {
-      // Aggiungi dopo :root {
-      content = content.replace(rootPattern, `$1\n    /* Design Tokens - Colors (migrated) */\n${colorVars.join('\n')}\n`);
-    } else {
-      // Aggiungi :root se non esiste
-      content = `@layer base {\n  :root {\n    /* Design Tokens - Colors (migrated) */\n${colorVars.join('\n')}\n  }\n}\n\n${content}`;
-    }
-  }
-
-  writeFileSync(globalsPath, content);
+  // 1. Crea backup automatico
+  const backupPath = createBackup(globalsPath);
+  
+  // 2. Estrai sezioni custom da preservare
+  const currentContent = readFileSync(globalsPath, 'utf-8');
+  const customSections = extractCustomSections(currentContent);
+  
+  // 3. Genera nuovo contenuto con sezioni preservate
+  const newContent = generatePreservedGlobals(colors, customSections, debugMode);
+  
+  // DEBUG: Stampa il CSS generato prima di scrivere il file
+  console.log('=== GENERATED GLOBALS.CSS ===\n', newContent);
+  
+  // 4. Scrivi nuovo contenuto
+  writeFileSync(globalsPath, newContent);
+  
+  // 5. Validazione
+  validateMigration(globalsPath, backupPath);
 }
 
 /**
- * Aggiorna tailwind.config.ts con i nuovi colori e keyframes
+ * Aggiorna tailwind.config.ts con i nuovi colori e keyframes (con preservazione)
  */
 async function updateTailwindConfig(destPath, colors, keyframes, animations) {
   const configPath = join(destPath, 'tailwind.config.ts');
@@ -309,67 +672,21 @@ async function updateTailwindConfig(destPath, colors, keyframes, animations) {
     return;
   }
 
-  let content = readFileSync(configPath, 'utf-8');
-
-  // Aggiorna i colori nella sezione extend.colors
-  const colorEntries = [];
-  for (const [colorName, colorValue] of Object.entries(colors)) {
-    if (typeof colorValue === 'string') {
-      colorEntries.push(`        ${colorName}: "hsl(var(--color-${colorName}))",`);
-    } else if (typeof colorValue === 'object') {
-      // Colore con varianti
-      const variants = [];
-      for (const [variant, value] of Object.entries(colorValue)) {
-        if (variant === 'DEFAULT') {
-          variants.push(`          DEFAULT: "hsl(var(--color-${colorName}))",`);
-        } else {
-          variants.push(`          ${variant}: "hsl(var(--color-${colorName}-${variant}))",`);
-        }
-      }
-      colorEntries.push(`        ${colorName}: {\n${variants.join('\n')}\n        },`);
-    }
-  }
-
-  // Inserisci i colori nella sezione extend.colors
-  if (colorEntries.length > 0) {
-    const colorsPattern = /(colors:\s*\{)/;
-    if (colorsPattern.test(content)) {
-      // Aggiungi dopo colors: {
-      content = content.replace(colorsPattern, `$1\n          // Migrated colors from astroflux-v4\n${colorEntries.join('\n')}\n`);
-    }
-  }
-
-  // Aggiungi keyframes se presenti
-  if (keyframes && Object.keys(keyframes).length > 0) {
-    const keyframesEntries = [];
-    for (const [keyframeName, frames] of Object.entries(keyframes)) {
-      const frameEntries = [];
-      for (const [frame, props] of Object.entries(frames)) {
-        frameEntries.push(`          "${frame}": { ${props} }`);
-      }
-      keyframesEntries.push(`        "${keyframeName}": {\n${frameEntries.join(',\n')}\n        }`);
-    }
-
-    const keyframesPattern = /(keyframes:\s*\{)/;
-    if (keyframesPattern.test(content)) {
-      content = content.replace(keyframesPattern, `$1\n          // Migrated keyframes from astroflux-v4\n${keyframesEntries.join(',\n')},\n`);
-    }
-  }
-
-  // Aggiungi animazioni se presenti
-  if (animations && Object.keys(animations).length > 0) {
-    const animationEntries = [];
-    for (const [animName, animValue] of Object.entries(animations)) {
-      animationEntries.push(`          "${animName}": "${animValue}",`);
-    }
-
-    const animationsPattern = /(animation:\s*\{)/;
-    if (animationsPattern.test(content)) {
-      content = content.replace(animationsPattern, `$1\n          // Migrated animations from astroflux-v4\n${animationEntries.join('\n')}\n`);
-    }
-  }
-
-  writeFileSync(configPath, content);
+  // 1. Crea backup automatico
+  const backupPath = createBackup(configPath);
+  
+  // 2. Estrai configurazioni custom da preservare
+  const currentContent = readFileSync(configPath, 'utf-8');
+  const customConfig = extractCustomConfig(currentContent);
+  
+  // 3. Genera nuovo contenuto con configurazioni preservate
+  const newContent = generatePreservedTailwind(colors, keyframes, animations, customConfig);
+  
+  // 4. Scrivi nuovo contenuto
+  writeFileSync(configPath, newContent);
+  
+  // 5. Validazione
+  validateMigration(configPath, backupPath);
 }
 
 /**
@@ -433,7 +750,8 @@ export async function migrateColors(config) {
     // 5. Aggiorna CSS variables in globals.css
     if (!dryRun) {
       console.log(chalk.blue('\n📝 Updating CSS variables...'));
-      await updateCssVariables(destPath, convertedColors);
+      const debugMode = config.options?.debug || false;
+      await updateCssVariables(destPath, convertedColors, debugMode);
       console.log(chalk.green('  ✓ Updated CSS variables'));
     } else {
       console.log(chalk.yellow('\n📝 [DRY RUN] Would update CSS variables...'));
@@ -535,4 +853,3 @@ export async function migrateTypography(config) {
     throw error;
   }
 }
-
