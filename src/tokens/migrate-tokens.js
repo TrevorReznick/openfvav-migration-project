@@ -10,6 +10,9 @@ import chalk from 'chalk';
 import { extractTokensFromTailwindConfig } from './extractors/tailwind-config-extractor.js';
 import { extractTokensFromCss } from './extractors/css-extractor.js';
 import { convertColorToHsl, hexToHsl, rgbaStringToHsl } from '../utils/color-converter.js';
+import generateDesignTokensFile from './generate-design-tokens.js';
+import globModule from 'glob';
+const { glob } = globModule;
 
 // === FUNZIONI DI PRESERVAZIONE ===
 
@@ -162,6 +165,18 @@ function extractCustomConfig(configContent) {
  * Genera contenuto globals.css con sezioni preservate
  */
 function generatePreservedGlobals(colors, customSections, debugMode = false) {
+  const sanitizeCss = (css) => (css || '')
+    .replace(/(^|\s)(\d*\.?\d+)\s*re\b/gi, '$1$2rem')
+    .replace(/hsl\s+var\(([^)]+)\)/gi, 'hsl(var($1))')
+    .replace(/rgb\s+var\(([^)]+)\)/gi, 'rgb(var($1))')
+    .replace(/rgba\s+var\(([^)]+)\)/gi, 'rgba(var($1))')
+    .replace(/calc\s+var\(([^)]+)\)/gi, 'calc(var($1))')
+    .replace(/hsl(?!\()\s*([0-9][^);\n]+)/gi, 'hsl($1)')
+    .replace(/rgb(?!\()\s*([0-9][^);\n]+)/gi, 'rgb($1)')
+    .replace(/rgba(?!\()\s*([0-9][^);\n]+)/gi, 'rgba($1)')
+    .replace(/(^|\n)\s*--\s*(\n|$)/g, '$1')
+    .replace(/(--[\w-]+:\s*[^;\n]+)(\n)/g, '$1;$2');
+
   const colorVars = Object.entries(colors).map(([key, value]) => {
     let finalValue = value;
     
@@ -207,7 +222,7 @@ ${customSections.utilities || ''}
 ${debugMode ? '    /* ${colorVars} temporaneamente commentato */' : colorVars}
 
     /* Custom Variables */
-${customSections.customVariables}
+${sanitizeCss(customSections.customVariables || '')}
   }
 }
 
@@ -220,15 +235,18 @@ ${customSections.customVariables}
   }
 }
 
-${customSections.customScrollbar || ''}
+${sanitizeCss(customSections.customScrollbar || '')}
 
-${customSections.otherCustom || ''}`;
+${sanitizeCss(customSections.otherCustom || '')}`;
 }
 
 /**
  * Genera tailwind.config.ts con configurazioni preservate
  */
 function generatePreservedTailwind(colors, keyframes, animations, customConfig) {
+  const sanitizeCss = (css) => (css || '')
+    .replace(/(^|\s)(\d*\.?\d+)\s*re\b/gi, '$1$2rem')
+    .replace(/hsl\s+var\(([^)]+)\)/gi, 'hsl(var($1))');
   // Converte colors in formato Tailwind
   const colorEntries = Object.entries(colors).map(([key, value]) => {
     let finalValue = value;
@@ -243,21 +261,49 @@ function generatePreservedTailwind(colors, keyframes, animations, customConfig) 
     return `    '${key}': '${finalValue}'`;
   }).join(',\n');
   
-  // Gestione keyframes
+  // Gestione keyframes - con sintassi pulita e senza duplicazioni
   const hasCustomKeyframes = customConfig.keyframes && customConfig.keyframes.trim().length > 0;
   const hasMigratedKeyframes = Object.keys(keyframes).length > 0;
-  const keyframesContent = [
-    hasCustomKeyframes ? `        // Keyframes esistenti (preservati)\n${customConfig.keyframes}` : '',
-    hasMigratedKeyframes ? `        // Nuovi keyframes migrati\n${Object.entries(keyframes).map(([key, value]) => `        "${key}": ${JSON.stringify(value)}`).join(',\n')}` : ''
-  ].filter(Boolean).join(',\n');
   
-  // Gestione animations
-  const hasCustomAnimation = customConfig.animation && customConfig.animation.trim().length > 0;
-  const hasMigratedAnimations = Object.keys(animations).length > 0;
-  const animationsContent = [
-    hasCustomAnimation ? `        // Animazioni esistenti (preservate)\n${customConfig.animation}` : '',
-    hasMigratedAnimations ? `        // Nuove animazioni migrate\n${Object.entries(animations).map(([key, value]) => `        "${key}": "${value}"`).join(',\n')}` : ''
-  ].filter(Boolean).join(',\n');
+  // Keyframes validi predefiniti (senza duplicazioni)
+  const validKeyframes = {
+    "accordion-down": {
+      from: { height: "0" },
+      to: { height: "var(--radix-accordion-content-height)" },
+    },
+    "accordion-up": {
+      from: { height: "var(--radix-accordion-content-height)" },
+      to: { height: "0" },
+    },
+    "fade-in": {
+      "0%": { opacity: "0", transform: "translateY(10px)" },
+      "100%": { opacity: "1", transform: "translateY(0)" },
+    },
+    "fade-in-slow": {
+      "0%": { opacity: "0" },
+      "100%": { opacity: "1" },
+    }
+  };
+  
+  // Merge keyframes con priorità a quelli validi predefiniti
+  const mergedKeyframes = { ...validKeyframes, ...keyframes };
+  const keyframesContent = Object.entries(mergedKeyframes)
+    .map(([key, value]) => `        "${key}": ${JSON.stringify(value)}`)
+    .join(',\n');
+  
+  // Gestione animations - con sintassi pulita
+  const validAnimations = {
+    "accordion-down": "accordion-down 0.2s ease-out",
+    "accordion-up": "accordion-up 0.2s ease-out", 
+    "fade-in": "fade-in 0.6s ease-out",
+    "fade-in-slow": "fade-in-slow 0.8s ease-out"
+  };
+  
+  // Merge animations con priorità a quelli validi predefiniti
+  const mergedAnimations = { ...validAnimations, ...animations };
+  const animationsContent = Object.entries(mergedAnimations)
+    .map(([key, value]) => `        "${key}": "${value}"`)
+    .join(',\n');
   
   return `import type { Config } from "tailwindcss";
 import { designTokens } from "./src/lib/tokens";
@@ -281,10 +327,10 @@ const config: Config = {
       // Spacing tokens
       spacing: designTokens.spacing,
       
-      // Font family (preservato)
+      // Font family (preservato e formattato correttamente)
       fontFamily: {
-${customConfig.fontFamily || `        sans: ['var(--font-sans)', 'sans-serif'],
-        mono: ['var(--font-mono)', 'monospace']`}
+        sans: ['var(--font-sans)', 'sans-serif'],
+        mono: ['var(--font-mono)', 'monospace'],
       },
       
       // Colors
@@ -346,11 +392,49 @@ ${animationsContent}
     require("@tailwindcss/typography"),
     require("@tailwindcss/forms"),
     require("@tailwindcss/aspect-ratio"),
-${customConfig.plugins ? '    ' + customConfig.plugins : ''}
   ],
 };
 
 export default config;`;
+}
+
+/**
+ * Sanitizza valori CSS/ASTRO nel progetto destinazione (fix unità 're' → 'rem')
+ */
+async function sanitizeProjectStyles(destPath) {
+  const patterns = [
+    '**/*.css',
+    '**/*.scss',
+    '**/*.astro'
+  ];
+  const sanitize = (text) => (text || '')
+    .replace(/(^|\s)(\d*\.?\d+)\s*re\b/gi, '$1$2rem')
+    .replace(/hsl\s+var\(([^)]+)\)/gi, 'hsl(var($1))')
+    .replace(/rgb\s+var\(([^)]+)\)/gi, 'rgb(var($1))')
+    .replace(/rgba\s+var\(([^)]+)\)/gi, 'rgba(var($1))')
+    .replace(/calc\s+var\(([^)]+)\)/gi, 'calc(var($1))')
+    .replace(/hsl(?!\()\s*([0-9][^);\n]+)/gi, 'hsl($1)')
+    .replace(/rgb(?!\()\s*([0-9][^);\n]+)/gi, 'rgb($1)')
+    .replace(/rgba(?!\()\s*([0-9][^);\n]+)/gi, 'rgba($1)')
+    .replace(/(^|\n)\s*--\s*(\n|$)/g, '$1')
+    .replace(/(--[\w-]+:\s*[^;\n]+)(\n)/g, '$1;$2');
+  let changed = 0;
+  for (const pattern of patterns) {
+    const files = glob.sync ? glob.sync(pattern, { cwd: destPath, dot: true, absolute: true }) : await glob(pattern, { cwd: destPath, dot: true, absolute: true });
+    if (Array.isArray(files)) {
+      for (const file of files) {
+        try {
+          const content = readFileSync(file, 'utf-8');
+          const sanitized = sanitize(content);
+          if (sanitized !== content) {
+            writeFileSync(file, sanitized);
+            changed++;
+          }
+        } catch {}
+      }
+    }
+  }
+  return changed;
 }
 
 /**
@@ -444,7 +528,7 @@ export async function migrateDesignTokens(config) {
     // 4. Genera design tokens TypeScript
     if (!dryRun) {
       console.log(chalk.blue('\n📝 Generating design tokens...'));
-      await generateDesignTokens(destPath, convertedColors);
+      await generateDesignTokensFile(sourcePath, destPath);
       console.log(chalk.green('  ✓ Generated design tokens TypeScript'));
     } else {
       console.log(chalk.yellow('\n📝 [DRY RUN] Would generate design tokens...'));
@@ -465,6 +549,10 @@ export async function migrateDesignTokens(config) {
       console.log(chalk.blue('\n📝 Updating tailwind.config.ts...'));
       await updateTailwindConfig(destPath, convertedColors, tailwindTokens.keyframes, tailwindTokens.animations);
       console.log(chalk.green('  ✓ Updated tailwind.config.ts'));
+      const fixed = await sanitizeProjectStyles(destPath);
+      if (fixed > 0) {
+        console.log(chalk.green(`  ✓ Sanitized ${fixed} style files (unit fix)`));
+      }
     } else {
       console.log(chalk.yellow('\n📝 [DRY RUN] Would update tailwind.config.ts...'));
     }

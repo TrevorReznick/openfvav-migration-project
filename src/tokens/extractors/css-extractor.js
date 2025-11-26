@@ -12,12 +12,17 @@ import { join } from 'path';
  */
 function parseCssVariables(content) {
   const variables = {};
+  const sanitizeValue = (val) => {
+    let v = val.trim();
+    v = v.replace(/(^|\s)(\d*\.?\d+)\s*re\b/gi, '$1$2rem');
+    return v;
+  };
   const regex = /--([\w-]+):\s*([^;]+);/g;
   let match;
 
   while ((match = regex.exec(content)) !== null) {
     const [, name, value] = match;
-    variables[name] = value.trim();
+    variables[name] = sanitizeValue(value);
   }
 
   return variables;

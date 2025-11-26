@@ -3,6 +3,21 @@
  */
 
 /**
+ * Sanitizza la sintassi HSL per CSS quando usa var()
+ * Converte virgole in slash quando necessario per compatibilità PostCSS
+ * @param {string} hslString - Stringa HSL da sanificare
+ * @returns {string} - Stringa HSL sanificata
+ */
+export function sanitizeForCss(hslString) {
+  // se contiene già " / " lascia così
+  if (hslString.includes('/')) return hslString;
+  
+  // se contiene opacità separata da virgola → sposta su " / "
+  const m = hslString.match(/^(.+?),\s*([\d.]+)$/);
+  return m ? `${m[1]} / ${m[2]}` : hslString;
+}
+
+/**
  * Converte un colore hex in HSL (formato Tailwind: "H S% L%")
  * @param {string} hex - Colore hex (es. "#7C3AED" o "7C3AED")
  * @returns {string} - Colore HSL (es. "270 81% 60%")
