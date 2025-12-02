@@ -766,6 +766,48 @@ async function main() {
       console.log(chalk.yellow('⚠️  Spacing migration not yet implemented'));
     });
 
+  // Tokens TS command
+  program
+    .command('tokens:ts')
+    .description('Generate tokens.ts file only')
+    .action(async () => {
+      const opts = program.opts();
+      const config = await loadConfig({
+        source: opts.source,
+        destination: opts.destination
+      });
+      if (opts.dryRun) {
+        console.log(chalk.yellow('\n🔍 DRY RUN MODE - No changes will be made\n'));
+        config.options = { ...config.options, dryRun: true };
+      } else {
+        config.options = { ...config.options, dryRun: false };
+      }
+      
+      try {
+        const sourcePath = config.paths.v4;  // Sorgente principale (V4)
+        const destPath = config.paths.v6;     // Destinazione migrazione (V6)
+        const dryRun = config.options?.dryRun || false;
+        
+        console.log(chalk.blue('\n🔄 Starting tokens.ts generation...'));
+        console.log(chalk.gray(`Source: ${sourcePath}`));
+        console.log(chalk.gray(`Destination: ${destPath}`));
+        if (dryRun) {
+          console.log(chalk.yellow('🔍 DRY RUN MODE - No changes will be made\n'));
+        }
+        
+        // Importa la funzione di generazione
+        const { default: generateTokensTsFile } = await import('./tokens/generate-tokens-ts.js');
+        
+        // Genera il file tokens.ts
+        generateTokensTsFile(sourcePath, destPath, dryRun);
+        
+        console.log(chalk.green('\n✅ tokens.ts generation completed successfully!'));
+      } catch (error) {
+        console.error(chalk.red('❌ tokens.ts generation failed:'), error.message);
+        process.exit(1);
+      }
+    });
+
   // Components command
   program
     .command('components')

@@ -11,6 +11,7 @@ import { extractTokensFromTailwindConfig } from './extractors/tailwind-config-ex
 import { extractTokensFromCss } from './extractors/css-extractor.js';
 import { convertColorToHsl, hexToHsl, rgbaStringToHsl } from '../utils/color-converter.js';
 import generateDesignTokensFile from './generate-design-tokens.js';
+import generateTokensTsFile from './generate-tokens-ts.js';
 import globModule from 'glob';
 const { glob } = globModule;
 
@@ -530,8 +531,71 @@ export async function migrateDesignTokens(config) {
       console.log(chalk.blue('\n📝 Generating design tokens...'));
       await generateDesignTokensFile(sourcePath, destPath);
       console.log(chalk.green('  ✓ Generated design tokens TypeScript'));
+      
+      // 4.1 Genera file tokens.ts con i dati estratti
+      console.log(chalk.blue('\n📝 Generating tokens.ts file...'));
+      // Usa solo i colori con valori HSL diretti (no riferimenti CSS)
+      const hslColors = {};
+      
+      // Aggiungi solo i colori convertiti che hanno valori HSL diretti
+      for (const [key, value] of Object.entries(convertedColors)) {
+        // Solo se non è un riferimento a variabile CSS
+        if (typeof value === 'string' && !value.includes('var(--')) {
+          hslColors[key] = value;
+        }
+      }
+      
+      // Aggiungi anche i colori originali del tailwind convertiti in HSL
+      const originalColors = tailwindTokens.colors || {};
+      for (const [key, value] of Object.entries(originalColors)) {
+        if (typeof value === 'string' && !hslColors[key]) {
+          const converted = convertColorToHsl(value);
+          // Solo se il convertito non è un riferimento CSS
+          if (converted && !converted.includes('var(--')) {
+            hslColors[key] = converted;
+          }
+        }
+      }
+      
+      // Estrai spacing e typography dai CSS tokens
+      const spacingTokens = {};
+      const typographyTokens = {};
+      
+      // Estrai spacing tokens (pattern --spacing-*)
+      for (const [key, value] of Object.entries(cssTokens.cssVariables || {})) {
+        if (key.startsWith('spacing-') && typeof value === 'string') {
+          const spacingKey = key.replace('spacing-', '');
+          spacingTokens[spacingKey] = value;
+        }
+      }
+      
+      // Estrai typography tokens
+      for (const [key, value] of Object.entries(cssTokens.cssVariables || {})) {
+        if ((key.startsWith('font-') || key.includes('size')) && typeof value === 'string') {
+          typographyTokens[key] = value;
+        }
+      }
+      
+      const tokensData = {
+        colors: hslColors,
+        spacing: spacingTokens,
+        typography: {
+          fontFamily: {
+            base: typographyTokens['font-sans'] || '"Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto',
+            mono: typographyTokens['font-mono'] || 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas'
+          },
+          fontSize: {
+            sm: typographyTokens['font-size-sm'] || '0.875rem',
+            base: typographyTokens['font-size-base'] || '1rem',
+            lg: typographyTokens['font-size-lg'] || '1.125rem'
+          }
+        }
+      };
+      generateTokensTsFile(sourcePath, destPath, dryRun, tokensData);
+      console.log(chalk.green('  ✓ Generated tokens.ts file'));
     } else {
       console.log(chalk.yellow('\n📝 [DRY RUN] Would generate design tokens...'));
+      console.log(chalk.yellow('\n📝 [DRY RUN] Would generate tokens.ts file...'));
     }
 
     // 5. Aggiorna CSS variables in globals.css
