@@ -8,7 +8,23 @@ import { join, dirname } from 'path';
 import chalk from 'chalk';
 
 /**
- * Genera il contenuto del file tokens.ts
+ * Helper per gestire correttamente le virgolette nei valori delle stringhe
+ */
+function escapeStringValue(value) {
+  if (value == null) return '';
+  let v = String(value).trim();
+  // Rimuovi virgolette esterne se presenti
+  if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
+    v = v.slice(1, -1);
+  }
+  // Sostituisci le virgolette doppie interne con singole
+  v = v.replace(/\"/g, '"'); // normalizza eventuali escape precedenti
+  v = v.replace(/"/g, "'");
+  return v;
+}
+
+/**
+ * Genera il contenuto del file tokens.ts con la formattazione corretta
  */
 function generateTokensContent(colors, spacing, typography) {
   const timestamp = new Date().toISOString();
@@ -27,8 +43,11 @@ function generateTokensContent(colors, spacing, typography) {
   const typographyEntries = [];
   if (typography.fontFamily) {
     typographyEntries.push('  "fontFamily": {');
-    Object.entries(typography.fontFamily).forEach(([key, value]) => {
-      typographyEntries.push(`    "${key}": "${value}"`);
+    const familyEntries = Object.entries(typography.fontFamily);
+    familyEntries.forEach(([key, value], index) => {
+      const comma = index < familyEntries.length - 1 ? ',' : '';
+      const escapedValue = escapeStringValue(value);
+      typographyEntries.push(`    "${key}": "${escapedValue}"${comma}`);
     });
     typographyEntries.push('  }');
   }
@@ -36,8 +55,11 @@ function generateTokensContent(colors, spacing, typography) {
   if (typography.fontSize) {
     if (typographyEntries.length > 0) typographyEntries.push(',');
     typographyEntries.push('  "fontSize": {');
-    Object.entries(typography.fontSize).forEach(([key, value]) => {
-      typographyEntries.push(`    "${key}": "${value}"`);
+    const sizeEntries = Object.entries(typography.fontSize);
+    sizeEntries.forEach(([key, value], index) => {
+      const comma = index < sizeEntries.length - 1 ? ',' : '';
+      const escapedValue = escapeStringValue(value);
+      typographyEntries.push(`    "${key}": "${escapedValue}"${comma}`);
     });
     typographyEntries.push('  }');
   }
@@ -79,7 +101,12 @@ export const getSpacing = (key: keyof typeof spacing): string => {
 };
 
 export const getColor = (key: keyof typeof colors): string => {
-  return \`var(--color-\${key})\`;
+  const colorValue = colors[key];
+  if (!colorValue) {
+    console.warn(\`Color token "\${key}" not found. Using fallback color.\`);
+    return 'hsl(0, 100%, 50%)'; // Colore di fallback (rosso) per debug
+  }
+  return \`hsl(\${colorValue})\`;
 };
 
 export default designTokens;

@@ -35,6 +35,48 @@ export async function generateDesignTokens(sourcePath, destPath) {
     extractTokensPlugin({ colorTokens, customVariables, typographyTokens })
   ]).process(cssContent, { from: undefined });
 
+  const isColorValue = (val) => {
+    const v = (val || '').trim();
+    return /^#/.test(v) || /^rgba?\(/i.test(v) || /^hsl\(/i.test(v) || /^\d+\s+\d+%\s+\d+%/.test(v);
+  };
+
+  const normalizeColorName = (raw) => {
+    const n = String(raw).replace(/^--/, '');
+    if (n === 'text-color') return 'foreground';
+    if (n === 'background-color' || n === 'background') return 'background';
+    if (n === 'primary-color' || n === 'primary') return 'primary';
+    if (n === 'secondary-color' || n === 'secondary') return 'secondary';
+    if (n === 'accent-color' || n === 'accent') return 'accent';
+    if (n === 'card-bg' || n === 'card') return 'card';
+    if (n === 'card-border' || n === 'border') return 'border';
+    if (n === 'input') return 'input';
+    if (n === 'ring') return 'ring';
+    return n.replace(/-color$/, '');
+  };
+
+  // Classifica variabili custom in colors/spacing/typography
+  Object.entries(customVariables).forEach(([varName, varValue]) => {
+    const name = String(varName).replace(/^--/, '');
+    const value = sanitizeValue(varValue);
+    const spacingMatch = name.match(/^spacing-(.+)$/);
+    if (spacingMatch) {
+      const key = spacingMatch[1];
+      typographyTokens[`space-${key}`] = value;
+      return;
+    }
+    // Font family shortcuts
+    const fontMatch = name.match(/^font-(.+)$/);
+    if (fontMatch) {
+      const key = fontMatch[1];
+      typographyTokens[key] = value;
+      return;
+    }
+    if (isColorValue(value)) {
+      const key = normalizeColorName(name);
+      colorTokens[key] = value;
+    }
+  });
+
   const colorsEntries = Object.entries(colorTokens).map(([key, value]) => {
     const hsl = convertColorToHsl(sanitizeValue(value));
     return `  '${key}': '${hsl}'`;

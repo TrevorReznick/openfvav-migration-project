@@ -811,6 +811,7 @@ async function updateCssVariables(destPath, colors, debugMode = false) {
   
   // 5. Validazione
   validateMigration(globalsPath, backupPath);
+
 }
 
 /**
