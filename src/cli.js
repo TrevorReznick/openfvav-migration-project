@@ -14,6 +14,7 @@ const CONFIG_PATH = join(process.cwd(), 'migration.config.json');
 // Import moduli
 import { migrateDesignTokens, migrateColors, migrateTypography } from './tokens/migrate-tokens.js';
 import { migrateComponents } from './components/migrate-components.js';
+import { analyzeComponentsOnly } from './components/analyze-components.js';
 
 /**
  * Normalizza il percorso assoluto
@@ -836,6 +837,59 @@ async function main() {
         }
       } catch (error) {
         console.error(chalk.red('❌ Component migration failed:'), error.message);
+        process.exit(1);
+      }
+    });
+
+  // Components analyze command
+  program
+    .command('components:analyze')
+    .description('Analyze React components usage in V4 source (read-only)')
+    .action(async () => {
+      const opts = program.opts();
+      try {
+        const config = await loadConfig({
+          source: opts.source,
+          destination: opts.destination
+        });
+
+        const report = await analyzeComponentsOnly(config);
+
+        console.log(chalk.blue('\n📊 Components analysis report:'));
+        console.log(chalk.gray(`  Timestamp: ${report.timestamp}`));
+        console.log(chalk.gray(`  Pages analyzed: ${report.migrated.pages.length}`));
+
+        if (report.migrated.pages.length > 0) {
+          console.log(chalk.blue('\n📄 Pages:'));
+          report.migrated.pages.forEach(page => {
+            const count = (page.components || []).length;
+            console.log(chalk.gray(`  - ${page.name} [${page.type}] -> ${count} components`));
+          });
+        }
+
+        const uniqueComponents = new Set();
+        report.migrated.pages.forEach(page => {
+          (page.components || []).forEach(c => uniqueComponents.add(c));
+        });
+
+        const sortedComponents = Array.from(uniqueComponents).sort();
+        console.log(chalk.blue('\n🧩 Components summary:'));
+        console.log(chalk.gray(`  Unique components: ${sortedComponents.length}`));
+        if (sortedComponents.length > 0) {
+          console.log(chalk.gray('  Components list:'));
+          sortedComponents.forEach(name => {
+            console.log(chalk.gray(`    • ${name}`));
+          });
+        }
+
+        if (report.errors && report.errors.length > 0) {
+          console.log(chalk.yellow('\n⚠️  Analysis errors:'));
+          report.errors.forEach(err => {
+            console.log(chalk.yellow(`  - ${err}`));
+          });
+        }
+      } catch (error) {
+        console.error(chalk.red('❌ Components analysis failed:'), error.message);
         process.exit(1);
       }
     });

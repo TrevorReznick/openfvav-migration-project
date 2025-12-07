@@ -332,9 +332,102 @@ async function scanAndMigrate() {
   }
 }
 
+// Analisi sola lettura (senza migrazione né scrittura file)
+async function analyzeComponentsOnly(configFromCli = {}) {
+  const configPaths = configFromCli.paths || {};
+  const sourceDir = configPaths.v4 || SOURCE_DIR;
+
+  const report = {
+    timestamp: new Date().toISOString(),
+    migrated: { pages: [], components: [] },
+    errors: [],
+    componentMap: {}
+  };
+
+  try {
+    console.log('\n🔍 Analisi componenti (read-only)...');
+    console.log('SOURCE:', sourceDir);
+
+    const pagesDir = path.join(sourceDir, 'src/pages');
+    const allPages = [];
+
+    // 1. Scansione tradizionale delle pagine in src/pages
+    if (fs.existsSync(pagesDir)) {
+      const pages = fs.readdirSync(pagesDir).filter(
+        page => !IGNORED_FILES.includes(page) && 
+               (fs.statSync(path.join(pagesDir, page)).isDirectory() || 
+                /\.(jsx|tsx)$/i.test(page))
+      );
+
+      for (const page of pages) {
+        const pagePath = path.join(pagesDir, page);
+        const isDir = fs.statSync(pagePath).isDirectory();
+        const sourceFile = isDir ? path.join(pagePath, 'index.tsx') : pagePath;
+
+        if (fs.existsSync(sourceFile)) {
+          const analysis = analyzeFile(sourceFile);
+          const pageName = path.basename(page, path.extname(page));
+
+          allPages.push({
+            name: pageName,
+            path: path.relative(process.cwd(), sourceFile),
+            components: analysis.components,
+            type: 'pages-directory'
+          });
+        }
+      }
+    }
+
+    // 2. Scansione dei file root-level per Single Page Applications
+    console.log('\n🔍 Scansione file root-level per SPA (read-only)...');
+    const rootPageCandidates = ['App.tsx', 'App.jsx', 'main.tsx', 'main.jsx', 'index.tsx', 'index.jsx'];
+    const srcRootDir = path.join(sourceDir, 'src');
+
+    if (fs.existsSync(srcRootDir)) {
+      for (const candidate of rootPageCandidates) {
+        const candidatePath = path.join(srcRootDir, candidate);
+        if (fs.existsSync(candidatePath)) {
+          const analysis = analyzeFile(candidatePath);
+          const pageName = path.basename(candidate, path.extname(candidate));
+
+          const isRootPage = isRootLevelPage(candidatePath, analysis);
+
+          if (isRootPage) {
+            allPages.push({
+              name: `spa-${pageName.toLowerCase()}`,
+              path: path.relative(process.cwd(), candidatePath),
+              components: analysis.components,
+              type: 'root-spa'
+            });
+            console.log(`📄 Trovata SPA root-level: ${candidate}`);
+          }
+        }
+      }
+    }
+
+    report.migrated.pages = allPages;
+    report.componentMap = generateComponentMap(report);
+
+    console.log('\n📊 Analisi completata (read-only):');
+    console.log(`   - Pagine analizzate: ${report.migrated.pages.length}`);
+    const uniqueComponents = new Set();
+    report.migrated.pages.forEach(page => {
+      (page.components || []).forEach(c => uniqueComponents.add(c));
+    });
+    console.log(`   - Componenti unici trovati: ${uniqueComponents.size}`);
+
+    return report;
+  } catch (error) {
+    const errorMsg = `❌ Errore durante l'analisi: ${error.message}`;
+    console.error(errorMsg);
+    report.errors.push(errorMsg);
+    throw error;
+  }
+}
+
 // Esegui la migrazione se richiesto direttamente
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   scanAndMigrate().catch(console.error);
 }
 
-export { scanAndMigrate };
+export { scanAndMigrate, analyzeComponentsOnly };
