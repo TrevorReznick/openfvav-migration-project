@@ -1,116 +1,142 @@
 /**
  * Generatore del file tokens.ts per il progetto V6 (openfav-dev-V3)
  * Basato sulla logica dello script di migration-dev-V1
+ * Aggiornato per supportare i temi light/dark e le variabili CSS
  */
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync, copyFileSync } from 'fs';
 import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import chalk from 'chalk';
 
 /**
- * Helper per gestire correttamente le virgolette nei valori delle stringhe
- */
-function escapeStringValue(value) {
-  if (value == null) return '';
-  let v = String(value).trim();
-  // Rimuovi virgolette esterne se presenti
-  if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
-    v = v.slice(1, -1);
-  }
-  // Sostituisci le virgolette doppie interne con singole
-  v = v.replace(/\"/g, '"'); // normalizza eventuali escape precedenti
-  v = v.replace(/"/g, "'");
-  return v;
-}
-
-/**
- * Genera il contenuto del file tokens.ts con la formattazione corretta
+ * Genera il contenuto del file tokens.ts
  */
 function generateTokensContent(colors, spacing, typography) {
   const timestamp = new Date().toISOString();
   
-  // Genera entries colors con formattazione corretta
-  const colorEntries = Object.entries(colors)
-    .map(([key, value]) => `  "${key}": "${value}"`)
-    .join(',\n');
+  // Aggiungiamo le variabili di tema mancanti con valori di default
+  const themeColors = {
+    // Colori base
+    background: colors.background || '222 47% 11%',
+    foreground: colors.foreground || '0 0% 100%',
+    primary: colors.primary || '262 83% 58%',
+    'primary-foreground': colors['primary-foreground'] || '0 0% 100%',
+    secondary: colors.secondary || '217 33% 17%',
+    'secondary-foreground': colors['secondary-foreground'] || '0 0% 100%',
+    accent: colors.accent || '271 91% 65%',
+    'accent-foreground': colors['accent-foreground'] || '0 0% 100%',
+    destructive: colors.destructive || '0 84% 60%',
+    'destructive-foreground': colors['destructive-foreground'] || '210 40% 98%',
+    muted: colors.muted || '217 33% 17%',
+    'muted-foreground': colors['muted-foreground'] || '163 78% 77%',
+    border: colors.border || '217 33% 17%',
+    input: colors.input || '217 33% 17%',
+    ring: colors.ring || '262 83% 58%',
+    card: colors.card || '217 33% 17%',
+    'card-foreground': colors['card-foreground'] || '0 0% 100%',
+    popover: colors.popover || '217 33% 17%',
+    'popover-foreground': colors['popover-foreground'] || '0 0% 100%',
+    // Manteniamo i colori esistenti
+    ...colors
+  };
 
-  // Genera entries spacing
-  const spacingEntries = Object.entries(spacing)
-    .map(([key, value]) => `  "${key}": "${value}"`)
-    .join(',\n');
+  // Genera le variabili CSS
+  const cssVariables = `
+:root {
+  /* Theme Colors */
+  --background: ${themeColors.background};
+  --foreground: ${themeColors.foreground};
+  --primary: ${themeColors.primary};
+  --primary-foreground: ${themeColors['primary-foreground']};
+  --secondary: ${themeColors.secondary};
+  --secondary-foreground: ${themeColors['secondary-foreground']};
+  --accent: ${themeColors.accent};
+  --accent-foreground: ${themeColors['accent-foreground']};
+  --destructive: ${themeColors.destructive};
+  --destructive-foreground: ${themeColors['destructive-foreground']};
+  --muted: ${themeColors.muted};
+  --muted-foreground: ${themeColors['muted-foreground']};
+  --border: ${themeColors.border};
+  --input: ${themeColors.input};
+  --ring: ${themeColors.ring};
+  --card: ${themeColors.card};
+  --card-foreground: ${themeColors['card-foreground']};
+  --popover: ${themeColors.popover};
+  --popover-foreground: ${themeColors['popover-foreground']};
+}
 
-  // Genera typography mantenendo la struttura nested
-  const typographyEntries = [];
-  if (typography.fontFamily) {
-    typographyEntries.push('  "fontFamily": {');
-    const familyEntries = Object.entries(typography.fontFamily);
-    familyEntries.forEach(([key, value], index) => {
-      const comma = index < familyEntries.length - 1 ? ',' : '';
-      const escapedValue = escapeStringValue(value);
-      typographyEntries.push(`    "${key}": "${escapedValue}"${comma}`);
-    });
-    typographyEntries.push('  }');
-  }
-  
-  if (typography.fontSize) {
-    if (typographyEntries.length > 0) typographyEntries.push(',');
-    typographyEntries.push('  "fontSize": {');
-    const sizeEntries = Object.entries(typography.fontSize);
-    sizeEntries.forEach(([key, value], index) => {
-      const comma = index < sizeEntries.length - 1 ? ',' : '';
-      const escapedValue = escapeStringValue(value);
-      typographyEntries.push(`    "${key}": "${escapedValue}"${comma}`);
-    });
-    typographyEntries.push('  }');
-  }
+.dark {
+  --background: 0 0% 3.9%;
+  --foreground: 0 0% 98%;
+  --card: 0 0% 3.9%;
+  --card-foreground: 0 0% 98%;
+  --popover: 0 0% 3.9%;
+  --popover-foreground: 0 0% 98%;
+  --primary: 0 0% 98%;
+  --primary-foreground: 0 0% 9%;
+  --secondary: 0 0% 14.9%;
+  --secondary-foreground: 0 0% 98%;
+  --muted: 0 0% 14.9%;
+  --muted-foreground: 0 0% 63.9%;
+  --accent: 0 0% 14.9%;
+  --accent-foreground: 0 0% 98%;
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 0 0% 14.9%;
+  --input: 0 0% 14.9%;
+  --ring: 0 0% 83.1%;
+}`;
 
-  return `// Auto-generated design tokens
+  // Genera il contenuto TypeScript
+  const tsContent = `// Auto-generated design tokens
 // Generated on: ${timestamp}
 // Source: migration-dev-V0/src/migration/design-system/tokens/
 
-const colors = {
-${colorEntries}
-} as const;
+const colors = ${JSON.stringify(themeColors, null, 2)} as const;
 
-const typography = {
-${typographyEntries.join('\n')}
-} as const;
+const typography = ${JSON.stringify(typography, null, 2)} as const;
 
-const spacing = {
-${spacingEntries}
-} as const;
+const spacing = ${JSON.stringify(spacing, null, 2)} as const;
 
-export const designTokens = {
+// Utility types
+type ColorToken = keyof typeof colors;
+type SpacingToken = keyof typeof spacing;
+
+// Utility functions
+const getSpacing = (key: SpacingToken): string => \`var(--spacing-\${key})\`;
+
+const getColor = (key: ColorToken): string => {
+  const value = colors[key];
+  if (!value) {
+    console.warn(\`Color token "\${key}" not found. Using fallback color.\`);
+    return 'hsl(0, 100%, 50%)';
+  }
+  return \`hsl(\${value})\`;
+};
+
+export {
   colors,
   typography,
-  spacing
+  spacing,
+  getSpacing,
+  getColor,
+  type ColorToken,
+  type SpacingToken
+};
+
+export default {
+  colors,
+  typography,
+  spacing,
+  getSpacing,
+  getColor
 } as const;
 
-// Export individual token groups for easier access
-export const colorTokens = colors;
-export const typographyTokens = typography;
-export const spacingTokens = spacing;
+// CSS Variables
+export const cssVariables = \`${cssVariables}\`;`;
 
-// Type definitions for better TypeScript support
-export type ColorToken = keyof typeof colors;
-export type SpacingToken = keyof typeof spacing;
-
-// Utility functions for common token operations
-export const getSpacing = (key: keyof typeof spacing): string => {
-  return \`var(--spacing-\${key})\`;
-};
-
-export const getColor = (key: keyof typeof colors): string => {
-  const colorValue = colors[key];
-  if (!colorValue) {
-    console.warn(\`Color token "\${key}" not found. Using fallback color.\`);
-    return 'hsl(0, 100%, 50%)'; // Colore di fallback (rosso) per debug
-  }
-  return \`hsl(\${colorValue})\`;
-};
-
-export default designTokens;
-`;
+  return tsContent;
 }
 
 /**
@@ -136,99 +162,90 @@ function createBackup(filePath) {
  * Estrae i token dal file JSON di migrazione
  */
 function extractTokensFromMigrationData(sourcePath) {
-  const migrationDataPath = join(sourcePath, 'src', 'migration', 'design-system', 'tokens');
-  
   try {
-    // Verifica se esistono i file JSON nella directory di migrazione
-    const colorsPath = join(migrationDataPath, 'colors.json');
-    const spacingPath = join(migrationDataPath, 'spacing.json');
-    const typographyPath = join(migrationDataPath, 'typography.json');
-    
-    let colors = {};
-    let spacing = {};
-    let typography = {};
-    
-    // Leggi colors.json
-    if (existsSync(colorsPath)) {
-      const colorsContent = readFileSync(colorsPath, 'utf-8');
-      colors = JSON.parse(colorsContent);
-    }
-    
-    // Leggi spacing.json
-    if (existsSync(spacingPath)) {
-      const spacingContent = readFileSync(spacingPath, 'utf-8');
-      spacing = JSON.parse(spacingContent);
-    }
-    
-    // Leggi typography.json
-    if (existsSync(typographyPath)) {
-      const typographyContent = readFileSync(typographyPath, 'utf-8');
-      typography = JSON.parse(typographyContent);
-    }
-    
-    return { colors, spacing, typography };
+    const migrationData = JSON.parse(readFileSync(sourcePath, 'utf8'));
+    return {
+      colors: migrationData.colors || {},
+      spacing: migrationData.spacing || {},
+      typography: migrationData.typography || {}
+    };
   } catch (error) {
-    console.warn(chalk.yellow(`  ⚠️  Errore lettura dati migrazione: ${error.message}`));
-    return { colors: {}, spacing: {}, typography: {} };
+    console.error(chalk.red(`Errore durante l'estrazione dei token: ${error.message}`));
+    return {
+      colors: {},
+      spacing: {},
+      typography: {}
+    };
   }
 }
 
 /**
  * Genera il file tokens.ts nella destinazione
  */
-export default function generateTokensTsFile(sourcePath, destPath, dryRun = false, extractedData = null) {
-  console.log(chalk.blue('\n📝 Generating tokens.ts file...'));
-  
+async function generateTokensTsFile(sourcePath, destPath, dryRun = false, extractedData = null) {
   try {
+    console.log(chalk.cyan(`\n🔄 Generazione del file tokens.ts in corso...`));
+    
     let colors, spacing, typography;
     
     if (extractedData) {
-      // Usa i dati passati direttamente dalla migrazione
-      colors = extractedData.colors || {};
-      spacing = extractedData.spacing || {};
-      typography = extractedData.typography || {};
+      // Usa i dati già estratti se forniti
+      ({ colors, spacing, typography } = extractedData);
     } else {
-      // 1. Estrai i token dai dati di migrazione (modalità standalone)
-      const extracted = extractTokensFromMigrationData(sourcePath);
-      colors = extracted.colors;
-      spacing = extracted.spacing;
-      typography = extracted.typography;
+      // Altrimenti estrai i token dal file sorgente
+      const tokens = extractTokensFromMigrationData(sourcePath);
+      colors = tokens.colors;
+      spacing = tokens.spacing;
+      typography = tokens.typography;
     }
     
-    console.log(chalk.green(`  ✓ Found ${Object.keys(colors).length} colors`));
-    console.log(chalk.green(`  ✓ Found ${Object.keys(spacing).length} spacing tokens`));
-    console.log(chalk.green(`  ✓ Found ${Object.keys(typography.fontFamily || {}).length} font families`));
-    console.log(chalk.green(`  ✓ Found ${Object.keys(typography.fontSize || {}).length} font sizes`));
-    
-    // 2. Genera il contenuto del file
-    const tokensContent = generateTokensContent(colors, spacing, typography);
+    // Genera il contenuto del file
+    const content = generateTokensContent(colors, spacing, typography);
     
     if (dryRun) {
-      console.log(chalk.yellow('\n🔍 [DRY RUN] Would generate tokens.ts with content:'));
-      console.log(tokensContent.substring(0, 500) + '...');
-      return;
+      console.log(chalk.yellow('\n⚠️  Modalità dry-run attiva. Ecco il contenuto che verrebbe generato:'));
+      console.log('='.repeat(80));
+      console.log(content);
+      console.log('='.repeat(80));
+      return { success: true, dryRun: true };
     }
     
-    // 3. Scrivi il file nella destinazione
-    const tokensPath = join(destPath, 'src', 'lib', 'tokens.ts');
-    
-    // Crea la directory se non esiste
-    const tokensDir = dirname(tokensPath);
-    if (!existsSync(tokensDir)) {
-      mkdirSync(tokensDir, { recursive: true });
-      console.log(chalk.green(`  ✓ Created directory: ${tokensDir}`));
+    // Crea la directory di destinazione se non esiste
+    const destDir = dirname(destPath);
+    if (!existsSync(destDir)) {
+      mkdirSync(destDir, { recursive: true });
     }
     
-    // Crea backup se il file esiste
-    createBackup(tokensPath);
+    // Crea un backup del file esistente
+    if (existsSync(destPath)) {
+      createBackup(destPath);
+    }
     
-    // Scrivi il nuovo file
-    writeFileSync(tokensPath, tokensContent, 'utf-8');
-    console.log(chalk.green(`  ✓ Generated tokens.ts: ${tokensPath}`));
+    // Scrivi il file
+    writeFileSync(destPath, content, 'utf8');
     
-    return tokensPath;
+    console.log(chalk.green(`✅ File generato con successo: ${destPath}`));
+    return { success: true, filePath: destPath };
+    
   } catch (error) {
-    console.error(chalk.red('❌ Error generating tokens.ts:'), error.message);
-    throw error;
+    console.error(chalk.red(`❌ Errore durante la generazione del file tokens.ts: ${error.message}`));
+    return { success: false, error: error.message };
   }
 }
+
+// Se eseguito direttamente
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  const args = process.argv.slice(2);
+  const sourcePath = args[0] || join(process.cwd(), 'tokens.json');
+  const destPath = args[1] || join(process.cwd(), 'src', 'lib', 'tokens.ts');
+  const dryRun = args.includes('--dry-run');
+  
+  generateTokensTsFile(sourcePath, destPath, dryRun)
+    .then(({ success }) => process.exit(success ? 0 : 1))
+    .catch(error => {
+      console.error(chalk.red(`❌ Errore: ${error.message}`));
+      process.exit(1);
+    });
+}
+
+export default generateTokensTsFile;
