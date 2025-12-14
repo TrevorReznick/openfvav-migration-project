@@ -320,3 +320,4 @@ git push origin feature/my-feature
 Ultimo aggiornamento: Dicembre 2025
 Versione documento: 2.0
 Versione tool: 0.1
+#
